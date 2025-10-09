@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+#EXTENSIONES QUE DECIDIMOS IGNORAR
+*.pdf
+*.csv
+*.xls
+*.xlsx
+*.ods
+*.db
+*.sqlite
+*.sqlite3
+*.bak
