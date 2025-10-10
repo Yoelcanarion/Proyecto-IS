@@ -1,6 +1,6 @@
 
-from PyQt6 import QtCore, QtGui, QtWidgets
 
+from PyQt5 import QtCore, QtGui, QtWidgets 
 
 class Ui_QMainWindow(object):
     def setupUi(self, QMainWindow):
@@ -12,15 +12,14 @@ class Ui_QMainWindow(object):
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.QVBoxLayout = QtWidgets.QVBoxLayout()
         self.QVBoxLayout.setObjectName("QVBoxLayout")
-        self.dataTableWidget = QtWidgets.QTabWidget(parent=self.centralwidget)
+        
+       
+        self.dataTableWidget = QtWidgets.QTableWidget(parent=self.centralwidget)
         self.dataTableWidget.setObjectName("dataTableWidget")
-        self.tab = QtWidgets.QWidget()
-        self.tab.setObjectName("tab")
-        self.dataTableWidget.addTab(self.tab, "")
-        self.tab_2 = QtWidgets.QWidget()
-        self.tab_2.setObjectName("tab_2")
-        self.dataTableWidget.addTab(self.tab_2, "")
-        self.QVBoxLayout.addWidget(self.dataTableWidget)
+        
+        
+        self.QVBoxLayout.addWidget(self.dataTableWidget) 
+        
         self.QHBoxLayout = QtWidgets.QHBoxLayout()
         self.QHBoxLayout.setObjectName("QHBoxLayout")
         self.openFileButton = QtWidgets.QPushButton(parent=self.centralwidget)
@@ -48,8 +47,7 @@ class Ui_QMainWindow(object):
     def retranslateUi(self, QMainWindow):
         _translate = QtCore.QCoreApplication.translate
         QMainWindow.setWindowTitle(_translate("QMainWindow", "MainWindow"))
-        self.dataTableWidget.setTabText(self.dataTableWidget.indexOf(self.tab), _translate("QMainWindow", "Tab 1"))
-        self.dataTableWidget.setTabText(self.dataTableWidget.indexOf(self.tab_2), _translate("QMainWindow", "Tab 2"))
+       
         self.openFileButton.setText(_translate("QMainWindow", "Abrir Archivo"))
         self.filePathLineEdit.setPlaceholderText(_translate("QMainWindow", "Ningún archivo cargado"))
 
@@ -61,4 +59,4 @@ if __name__ == "__main__":
     ui = Ui_QMainWindow()
     ui.setupUi(QMainWindow)
     QMainWindow.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_()) # ## CAMBIO 4: Para PyQt5 es app.exec_()
