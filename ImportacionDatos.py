@@ -61,7 +61,7 @@ def cargarDatos(ruta):
     
     # Gestion Errores
     except FileNotFoundError:
-        raise ValueError(f"El archivo no se encuentra en la ruta: {ruta}")
+        raise FileNotFoundError(f"El archivo no se encuentra en la ruta: {ruta}")
     except (pd.errors.ParserError, sqlite3.DatabaseError, ValueError, Exception) as e:
         if "La tabla no existe" in str(e) or "debe contener exactamente una tabla" in str(e):
              raise e
