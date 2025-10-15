@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import QAbstractTableModel, Qt
 
 class Mensajes:
     """
@@ -39,3 +40,31 @@ class Mensajes:
         dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
         dlg.setIcon(QMessageBox.Icon.Information)
         dlg.exec()
+
+
+#REVISAR
+class PandasModel(QAbstractTableModel):
+    def __init__(self, df):
+        super().__init__()
+        self.df = df
+
+    def rowCount(self, parent=None):
+        return len(self.df)
+
+    def columnCount(self, parent=None):
+        return len(self.df.columns)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        if role == Qt.ItemDataRole.DisplayRole:
+            return str(self.df.iat[index.row(), index.column()])
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole:
+            if orientation == Qt.Orientation.Horizontal:
+                return str(self.df.columns[section])
+            else:
+                return str(self.df.index[section])
+        return None
