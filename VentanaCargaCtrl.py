@@ -38,7 +38,7 @@ class VentanaCargaCtrl(QMainWindow):
     
     
 #DESCOMENTAR PARA PROBAR
-app = QApplication(sys.argv)
-ventana = VentanaCargaCtrl(impDat.cargarDatos("C:/Users/yogar/Downloads/housing.csv")) 
-ventana.show()
-sys.exit(app.exec())
+#app = QApplication(sys.argv)
+#ventana = VentanaCargaCtrl(impDat.cargarDatos("poner ruta aqui")) <----pon la ruta ABSOLUTA
+#ventana.show()
+#sys.exit(app.exec())

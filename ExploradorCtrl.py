@@ -11,11 +11,13 @@ from UtilidadesInterfaz import PandasModel as mp
 from UtilidadesInterfaz import Mensajes as msj
 
 class ExploradorCtrl(QMainWindow):
+    df = None #REVISAR Podria valer tambien con la ruta no se que es mas optimo/seguro
     def __init__(self):
         super().__init__()
         self.ui = Ui_QMainWindow()
         self.ui.setupUi(self)
         self.ui.openFileButton.clicked.connect(self.abrir_Explorador)
+        self.df
         
     def abrir_Explorador(self):
         ruta,_ = QFileDialog.getOpenFileName(self,"Abrir dataset","","Archivos csv: (*.csv);;Archivos xlx: (*.xlx);;Archivos xlsx: (*.xlsx);; Archivos db: (*.db)")
@@ -26,8 +28,7 @@ class ExploradorCtrl(QMainWindow):
                 df = impd.cargarDatos(ruta)
                 self.cargarTabla(df)
             except ValueError as e:
-                msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al cargar la tabla")
-            
+                msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al cargar el archivo")
             except FileNotFoundError as f:
                 msj.crearAdvertencia(self,"Archivo no encontrado", "No se ha encontrado el archivo especificado")
                 
@@ -40,13 +41,16 @@ class ExploradorCtrl(QMainWindow):
         modelo = self.ui.tblDatos.model()
         if modelo != None :
             self.ui.tblDatos.setModel(None)
+            self.df=None
         
         try:
             model = mp(df)
             tabla = self.ui.tblDatos
             tabla.setModel(model)
+            self.df = df
         except ValueError as e:
-            msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al cargar la tabla")
+            self.df=None
+            msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al crear la tabla")
         
 app = QApplication(sys.argv)
 ventana = ExploradorCtrl() 
