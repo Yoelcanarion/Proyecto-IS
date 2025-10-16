@@ -47,8 +47,8 @@ class MainWindowCtrl(QMainWindow):
         # Añadir opciones al combo de preprocesamiento
         self.ui.combo_opciones.addItems([
             "Eliminar filas con NaN",
-            "Rellenar con la media (SciPy)",
-            "Rellenar con la mediana (SciPy)",
+            "Rellenar con la media (Numpy)",
+            "Rellenar con la mediana",
             "Rellenar con un valor constante"
         ])
         
@@ -107,12 +107,13 @@ class MainWindowCtrl(QMainWindow):
 
     def IrADatasplit(self):
         """Cambia a la página del datasplit"""
-        if self.dfProcesado.isnull().values.any() == True:
-            msj.crearAdvertencia(self, "Presencia de Nulos", "Para continuar al datasplit no puede tener nulos en el dataframe")
+        if self.df.isnull().values.any() == False or self.dfProcesado is not None:
+            self.ui.stackedWidget.setCurrentIndex(2)             # Cambiar a la página de datasplit
             return
-        
-        # Cambiar a la página de datasplit
-        self.ui.stackedWidget.setCurrentIndex(2)
+
+        msj.crearAdvertencia(self, "Presencia de Nulos", "Para continuar al datasplit no puede tener nulos en el dataframe")
+        return
+
 
     def irAPreprocesamiento(self):
         """Cambia a la página de preprocesamiento"""
@@ -162,7 +163,7 @@ class MainWindowCtrl(QMainWindow):
         else:
             self.ui.input_constante.hide()
     #HAY QUE MEJORAR ALGUNAS COSAS, NO SE SI FUNCIONA BIEN LA MEDIA Y LA M EDIA 
-    def rellenarNanColumnasNumericas(self, df, metodo='mediana', valorConstante=None):
+    def rellenarNanColumnasNumericas(self, df, metodo, valorConstante=None):
         """
         Rellena valores NaN en columnas numéricas del DataFrame.
         
@@ -174,21 +175,19 @@ class MainWindowCtrl(QMainWindow):
         Returns:
             DataFrame con valores NaN rellenados
         """
-        # Crear una copia del DataFrame para no modificar el original
-        dfCopy = df.copy()
-        
-        for col in dfCopy.select_dtypes(include=[np.number]).columns:
-            if dfCopy[col].isna().any():
+
+        for col in df.select_dtypes(include=[np.number]).columns:
+            if df[col].isna().any():
                 if metodo == 'media':
-                    valor = stats.tmean(dfCopy[col], nan_policy='omit')
-                    dfCopy[col] = dfCopy[col].fillna(valor)
+                    valor = np.nanmean(df[col])
+                    df[col] = df[col].fillna(valor)
                 elif metodo == 'mediana':
-                    valor = np.nanmedian(dfCopy[col].to_numpy())
-                    dfCopy[col] = dfCopy[col].fillna(valor)
+                    valor = np.nanmedian(df[col].to_numpy())
+                    df[col] = df[col].fillna(valor)
                 elif metodo == 'constante' and valorConstante is not None:
-                    dfCopy[col] = dfCopy[col].fillna(valorConstante)
+                    df[col] = df[col].fillna(valorConstante)
         
-        return dfCopy
+        return df
     
     def aplicarPreprocesado(self):
         """Aplica la operación de preprocesamiento seleccionada"""
@@ -205,13 +204,13 @@ class MainWindowCtrl(QMainWindow):
                 #ignore_index -> reescribe el indic ej borro la 12, la 14 pasa a la 13
                 df.dropna(inplace=True,ignore_index=True)
             
-            elif "media" in opcion:
+            elif "Rellenar con la media (Numpy)" == opcion:
                 df = self.rellenarNanColumnasNumericas(df, metodo='media')
             
-            elif "mediana" in opcion:
+            elif "Rellenar con la mediana" == opcion:
                 df = self.rellenarNanColumnasNumericas(df, metodo='mediana')
             
-            elif "constante" in opcion:
+            elif "Rellenar con un valor constante" == opcion:
                 valor = self.ui.input_constante.text()
                 if valor == "":
                     msj.crearAdvertencia(self, "Valor requerido", "Introduce un valor constante")
@@ -256,10 +255,16 @@ class MainWindowCtrl(QMainWindow):
 #====================Métodos del DataSplit======================#
 
     def _actualizarPorcentajeTest(self):
+        """Actualiza la proporción de test según el valor del input"""
         value = self.ui.inputPorcentaje.value()
         self.proporcionDeTest = float(value)/100
 
-    def _ejecutarDatasplit(self, tamañoTest):      
+    def _ejecutarDatasplit(self, tamañoTest):  
+        """Realiza el datasplit en dataFrameTrain y dataFrameTest"""
+        if self.dfProcesado is None:    #No hago una comprobación de si el df tiene nulos porque ya se hace antes de entrar al datasplit
+            self.dataFrameTrain, self.dataFrameTest = train_test_split(self.df, test_size = tamañoTest)   
+            return
+        
         if self.dfProcesado.isnull().values.any() == True:
             msj.crearAdvertencia(self, "Presencia de Nulos", "Para continuar al datasplit no puede tener nulos en el dataframe")
             return
@@ -270,16 +275,17 @@ class MainWindowCtrl(QMainWindow):
         """Calcula las lineas de cada parte y su porcentaje real y lo muestra en un bloque"""
         #Lineas y porcentaje de lineas del entrenamiento
         porcentajeTrain = (len(self.dataFrameTrain)/len(self.dfProcesado))*100
-        self.ui.labelPcntjEntrenamiento.setText(f"{len(self.dataFrameTrain)} Lineas --- {porcentajeTrain}% de los datos")
+        self.ui.labelPcntjEntrenamiento.setText(f"{len(self.dataFrameTrain)} Lineas de Entrenamiento --- {porcentajeTrain:.2f}% de los datos")
 
         #Lineas y porcentaje de lineas del entrenamiento
         porcentajeTest = (len(self.dataFrameTest)/len(self.dfProcesado))*100
-        self.ui.labelPcntjTest.setText(f"{len(self.dataFrameTest)} Lineas --- {porcentajeTest}% de los datos")
+        self.ui.labelPcntjTest.setText(f"{len(self.dataFrameTest)} Lineas de Test --- {porcentajeTest:.2f}% de los datos")
         
         #Mostramos el bloque 
         self.ui.groupResultadoSplit.show()
 
     def procesoDataSplit(self):
+        """Realiza el proceso de datasplit y muestra los resultados"""
         self._actualizarPorcentajeTest()
         self._ejecutarDatasplit(self.proporcionDeTest)
 
