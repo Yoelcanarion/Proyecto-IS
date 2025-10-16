@@ -14,7 +14,19 @@ from UtilidadesInterfaz import PandasModel as mp
 from UtilidadesInterfaz import Mensajes as msj
 
 class MainWindowCtrl(QMainWindow):
+    """
+    Controlador principal de la ventana de la aplicación.
+    Gestiona la interfaz gráfica, la carga de datos, y la configuración inicial
+    de los elementos de la ventana principal. Además, define propiedades y métodos 
+    para el manejo del DataFrame cargado y su posterior procesamiento.
+    """
     def __init__(self):
+        """
+        Inicializa la ventana principal y configura los elementos de la interfaz.
+        Crea las variables necesarias para almacenar los distintos DataFrames 
+        (original, procesado, entrenamiento y prueba) e inicializa la interfaz 
+        llamando a los métodos de configuración y conexión de señales.
+        """
         super().__init__()
         self.ui = Ui_QMainWindow()
         self.ui.setupUi(self)
@@ -69,33 +81,57 @@ class MainWindowCtrl(QMainWindow):
         self.ui.procceedButton.clicked.connect(self.procesoDataSplit)
         self.ui.inputPorcentaje.valueChanged.connect(self._actualizarPorcentajeTest)
 
-       
-    
-    
-    
     def abrirExplorador(self):
-        ruta,_ = QFileDialog.getOpenFileName(self,"Abrir dataset","","Archivos csv: (*.csv);;Archivos xlx: (*.xlx);;Archivos xlsx: (*.xlsx);; Archivos db: (*.db)")
-        self.ui.filePathLineEdit.setPlaceholderText(ruta) 
+        """
+        Abre un cuadro de diálogo para seleccionar un archivo y carga los datos en la tabla.
+
+        Permite al usuario seleccionar un archivo con los formatos permitidos en esta práctica. 
+        Si se selecciona una ruta válida, intenta cargar los datos utilizando la 
+        función `impd.cargarDatos()` y mostrarlos en la tabla mediante `self.cargarTabla()`. 
+        En caso de error, muestra mensajes de advertencia apropiados.
+
+        Raises:
+            ValueError: Si ocurre un error inesperado al cargar los datos.
+            FileNotFoundError: Si el archivo seleccionado no se encuentra.
+        """
+        ruta, _ = QFileDialog.getOpenFileName(
+            self,
+            "Abrir dataset",
+            "",
+            "Archivos csv: (*.csv);;Archivos xlx: (*.xlx);;Archivos xlsx: (*.xlsx);; Archivos db: (*.db)"
+        )
+        self.ui.filePathLineEdit.setPlaceholderText(ruta)
         if ruta != "":
-            
             try:
                 df = impd.cargarDatos(ruta)
                 self.cargarTabla(df)
             except ValueError as e:
-                msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al cargar el archivo")
+                msj.crearAdvertencia(self, "Error inesperado", "Se ha producido un error inesperado al cargar el archivo")
             except FileNotFoundError as f:
-                msj.crearAdvertencia(self,"Archivo no encontrado", "No se ha encontrado el archivo especificado")
-                
-        else: 
-            msj.crearAdvertencia(self,"Ruta no encontrada","Se debe introducir una ruta valida")
-            
-    def cargarTabla(self,df):
-        
+                msj.crearAdvertencia(self, "Archivo no encontrado", "No se ha encontrado el archivo especificado")
+        else:
+            msj.crearAdvertencia(self, "Ruta no encontrada", "Se debe introducir una ruta válida")
+
+
+    def cargarTabla(self, df):
+        """
+        Carga un DataFrame en la tabla del interfaz gráfico.
+
+        Si ya existe un modelo de datos cargado, lo elimina antes de establecer el nuevo.
+        Crea un nuevo modelo a partir del DataFrame recibido y lo asigna a la tabla.
+        Si ocurre un error durante la creación del modelo, muestra un mensaje de advertencia.
+
+        Args:
+            df (pandas.DataFrame): El conjunto de datos a mostrar en la tabla.
+
+        Raises:
+            ValueError: Si ocurre un error inesperado al crear el modelo de la tabla.
+        """
         modelo = self.ui.tblDatos.model()
-        if modelo != None :
+        if modelo is not None:
             self.ui.tblDatos.setModel(None)
-            self.df = None 
-        
+            self.df = None
+
         try:
             model = mp(df)
             tabla = self.ui.tblDatos
@@ -103,7 +139,8 @@ class MainWindowCtrl(QMainWindow):
             self.df = df
         except ValueError as e:
             self.df = None
-            msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al crear la tabla")
+            msj.crearAdvertencia(self, "Error inesperado", "Se ha producido un error inesperado al crear la tabla")
+
 
     def IrADatasplit(self):
         """Cambia a la página del datasplit"""
