@@ -91,7 +91,6 @@ class MainWindowCtrl(QMainWindow):
             
     def cargarTabla(self,df):
         
-        # hacer un try y hacer varios except, en funcion a los que devuelve el codigo de ventanacarga, mirando los except del mismo, poniendo el mensaje por advertencia
         modelo = self.ui.tblDatos.model()
         if modelo != None :
             self.ui.tblDatos.setModel(None)
@@ -162,7 +161,7 @@ class MainWindowCtrl(QMainWindow):
             self.ui.input_constante.show()
         else:
             self.ui.input_constante.hide()
-    #HAY QU EMEJORAR ALGUNAS COISAS, NO SE SI FUNCIONA BIEN LA MEDIA Y LA M EDIA 
+    #HAY QUE MEJORAR ALGUNAS COSAS, NO SE SI FUNCIONA BIEN LA MEDIA Y LA M EDIA 
     def rellenarNanColumnasNumericas(self, df, metodo='mediana', valorConstante=None):
         """
         Rellena valores NaN en columnas numéricas del DataFrame.
