@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import pandas as pd
 from scipy import stats
+from sklearn.model_selection import train_test_split
 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QFileDialog, QTableWidgetItem,QMessageBox, QHeaderView, QInputDialog, QStatusBar)
 from MainWindowUI import Ui_QMainWindow
@@ -21,6 +22,8 @@ class MainWindowCtrl(QMainWindow):
         self._df = None
         #el procesado
         self.dfProcesado = None
+        self.dataFrameTest = None
+        self.dataFrameTrain = None
         # Configuración inicial
         self.configurarInterfaz()
         self.conectarSenalesPreproceso()
@@ -39,12 +42,13 @@ class MainWindowCtrl(QMainWindow):
         """Configuración inicial de la interfaz"""
         # Ocultar input de constante inicialmente
         self.ui.input_constante.hide()
+        self.ui.groupResultadoSplit.hide()
                 
         # Añadir opciones al combo de preprocesamiento
         self.ui.combo_opciones.addItems([
             "Eliminar filas con NaN",
-            "Rellenar con la media (Numpy)",
-            "Rellenar con la mediana",
+            "Rellenar con la media (SciPy)",
+            "Rellenar con la mediana (SciPy)",
             "Rellenar con un valor constante"
         ])
         
@@ -60,7 +64,10 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btn_aplicar.clicked.connect(self.aplicarPreprocesado)
         self.ui.btnVolverExplorador.clicked.connect(self.volverAExplorador)
         self.ui.openFileButton.clicked.connect(self.abrirExplorador)
-
+        self.ui.btnVolverAlPreprocesado.clicked.connect(self.irAPreprocesamiento)
+        self.ui.btnIrADatasplit.clicked.connect(self.IrADatasplit)
+        self.ui.procceedButton.clicked.connect(self.procesoDataSplit)
+        self.ui.inputPorcentaje.valueChanged.connect(self._actualizarPorcentajeTest)
 
        
     
@@ -98,6 +105,15 @@ class MainWindowCtrl(QMainWindow):
         except ValueError as e:
             self.df = None
             msj.crearAdvertencia(self,"Error inesperado", "Se ha producido un error inesperado al crear la tabla")
+
+    def IrADatasplit(self):
+        """Cambia a la página del datasplit"""
+        if self.dfProcesado.isnull().values.any() == True:
+            msj.crearAdvertencia(self, "Presencia de Nulos", "Para continuar al datasplit no puede tener nulos en el dataframe")
+            return
+        
+        # Cambiar a la página de datasplit
+        self.ui.stackedWidget.setCurrentIndex(2)
 
     def irAPreprocesamiento(self):
         """Cambia a la página de preprocesamiento"""
@@ -147,7 +163,7 @@ class MainWindowCtrl(QMainWindow):
         else:
             self.ui.input_constante.hide()
     #HAY QU EMEJORAR ALGUNAS COISAS, NO SE SI FUNCIONA BIEN LA MEDIA Y LA M EDIA 
-    def rellenarNanColumnasNumericas(self, df, metodo, valorConstante=None):
+    def rellenarNanColumnasNumericas(self, df, metodo='mediana', valorConstante=None):
         """
         Rellena valores NaN en columnas numéricas del DataFrame.
         
@@ -158,18 +174,22 @@ class MainWindowCtrl(QMainWindow):
             
         Returns:
             DataFrame con valores NaN rellenados
-        """        
-        for col in df.select_dtypes(include=[np.number]).columns:
-            if df[col].isna().any():
+        """
+        # Crear una copia del DataFrame para no modificar el original
+        dfCopy = df.copy()
+        
+        for col in dfCopy.select_dtypes(include=[np.number]).columns:
+            if dfCopy[col].isna().any():
                 if metodo == 'media':
-                    valor = np.nanmean(df[col])
-                    df[col] = df[col].fillna(valor)
+                    valor = stats.tmean(dfCopy[col], nan_policy='omit')
+                    dfCopy[col] = dfCopy[col].fillna(valor)
                 elif metodo == 'mediana':
-                    valor = np.nanmedian(df[col].to_numpy())
-                    df[col] = df[col].fillna(valor)
+                    valor = np.nanmedian(dfCopy[col].to_numpy())
+                    dfCopy[col] = dfCopy[col].fillna(valor)
                 elif metodo == 'constante' and valorConstante is not None:
-                    df[col] = df[col].fillna(valorConstante)
-        return df
+                    dfCopy[col] = dfCopy[col].fillna(valorConstante)
+        
+        return dfCopy
     
     def aplicarPreprocesado(self):
         """Aplica la operación de preprocesamiento seleccionada"""
@@ -186,13 +206,13 @@ class MainWindowCtrl(QMainWindow):
                 #ignore_index -> reescribe el indic ej borro la 12, la 14 pasa a la 13
                 df.dropna(inplace=True,ignore_index=True)
             
-            elif "Rellenar con la media (Numpy)" == opcion:
+            elif "media" in opcion:
                 df = self.rellenarNanColumnasNumericas(df, metodo='media')
             
-            elif "Rellenar con la mediana" == opcion:
+            elif "mediana" in opcion:
                 df = self.rellenarNanColumnasNumericas(df, metodo='mediana')
             
-            elif "Rellenar con un valor constante" == opcion:
+            elif "constante" in opcion:
                 valor = self.ui.input_constante.text()
                 if valor == "":
                     msj.crearAdvertencia(self, "Valor requerido", "Introduce un valor constante")
@@ -234,6 +254,46 @@ class MainWindowCtrl(QMainWindow):
         self.ui.table_view_after.resizeColumnsToContents()
         self.ui.label_after.setText(f"DataFrame PROCESADO ({len(self.dfProcesado)} filas)")
 
+#====================Métodos del DataSplit======================#
+
+    def _actualizarPorcentajeTest(self):
+        value = self.ui.inputPorcentaje.value()
+        self.proporcionDeTest = float(value)/100
+
+    def _ejecutarDatasplit(self, tamañoTest):      
+        if self.dfProcesado.isnull().values.any() == True:
+            msj.crearAdvertencia(self, "Presencia de Nulos", "Para continuar al datasplit no puede tener nulos en el dataframe")
+            return
+
+        self.dataFrameTrain, self.dataFrameTest = train_test_split(self.dfProcesado, test_size = tamañoTest)   
+
+    def _mostrarTablaProporciones(self):
+        """Calcula las lineas de cada parte y su porcentaje real y lo muestra en un bloque"""
+        #Lineas y porcentaje de lineas del entrenamiento
+        porcentajeTrain = (len(self.dataFrameTrain)/len(self.dfProcesado))*100
+        self.ui.labelPcntjEntrenamiento.setText(f"{len(self.dataFrameTrain)} Lineas --- {porcentajeTrain}% de los datos")
+
+        #Lineas y porcentaje de lineas del entrenamiento
+        porcentajeTest = (len(self.dataFrameTest)/len(self.dfProcesado))*100
+        self.ui.labelPcntjTest.setText(f"{len(self.dataFrameTest)} Lineas --- {porcentajeTest}% de los datos")
+        
+        #Mostramos el bloque 
+        self.ui.groupResultadoSplit.show()
+
+    def procesoDataSplit(self):
+        self._actualizarPorcentajeTest()
+        self._ejecutarDatasplit(self.proporcionDeTest)
+
+        if (
+        self.dataFrameTrain is None
+        or self.dataFrameTest is None
+        or self.dataFrameTrain.isnull().values.any()
+        or self.dataFrameTest.isnull().values.any()):
+            msj.crearAdvertencia(self, "Error inesperado", "Se ha producido un error inesperado al realizar el datasplit")
+            return
+
+        self._mostrarTablaProporciones()
+        msj.crearInformacion(self, "Éxito", "El datasplit se ha realizado correctamente")
 
 
 
