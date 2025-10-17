@@ -1,5 +1,7 @@
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QAbstractTableModel, Qt
+from PyQt6.QtGui import QBrush, QColor, QFont
+import pandas as pd
 
 class Mensajes:
     """
@@ -42,7 +44,6 @@ class Mensajes:
         dlg.exec()
 
 
-#REVISAR
 class PandasModel(QAbstractTableModel):
     def __init__(self, df):
         super().__init__()
@@ -59,6 +60,60 @@ class PandasModel(QAbstractTableModel):
             return None
         if role == Qt.ItemDataRole.DisplayRole:
             return str(self.df.iat[index.row(), index.column()])
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole:
+            if orientation == Qt.Orientation.Horizontal:
+                return str(self.df.columns[section])
+            else:
+                return str(self.df.index[section])
+        return None
+
+
+class PandasModelConColor(QAbstractTableModel):
+    """
+    Modelo extendido de PandasModel que permite colorear columnas específicas 
+    y tachar valores NaN visualmente.
+    """
+    def __init__(self, df, columna_verde=None, columna_roja=None, tachar_nan=False):
+        super().__init__()
+        self.df = df
+        self.columna_verde = columna_verde
+        self.columna_roja = columna_roja
+        self.tachar_nan = tachar_nan
+
+    def rowCount(self, parent=None):
+        return len(self.df)
+
+    def columnCount(self, parent=None):
+        return len(self.df.columns)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        
+        valor = self.df.iat[index.row(), index.column()]
+        
+        if role == Qt.ItemDataRole.DisplayRole:
+            # Mostrar el valor (incluso si es NaN)
+            return str(valor)
+        
+        # Color de fondo para las columnas seleccionadas
+        elif role == Qt.ItemDataRole.BackgroundRole:
+            col_name = self.df.columns[index.column()]
+            if col_name == self.columna_verde:
+                return QBrush(QColor(144, 238, 144))  # Verde claro
+            elif col_name == self.columna_roja:
+                return QBrush(QColor(255, 182, 193))  # Rojo claro
+        
+        # Tachar los valores NaN si la opción está activada
+        elif role == Qt.ItemDataRole.FontRole:
+            if self.tachar_nan and pd.isna(valor):
+                font = QFont()
+                font.setStrikeOut(True)
+                return font
+        
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
