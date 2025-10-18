@@ -86,15 +86,9 @@ class MainWindowCtrl(QMainWindow):
         """Conectar señales de los botones y widgets"""
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        #DICE IAN QUE LO QUE HAGA ES AÑADIR UN BOTÓN PARA QUE SE APLIQUE EL PREPROCESADO -> PARA QUE NO ME DE PROBLEMA AL INSERTAR OTRO ARCHIVO
-        #SINO, A NO SER QUE VIELVA A PONER "SElecciona una opcion", no funciona
-        ##mod
         self.ui.btnPasarSiguientePestana.clicked.connect(self.pasarSiguientePestana)
-        #AÑADIDOS
-        self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)#modifico la funcion para q funcione
-        self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)#modifico la funcion para que funcione
-
-        
+        self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
+        self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
 
     def abrirExplorador(self):
         """
@@ -123,7 +117,7 @@ class MainWindowCtrl(QMainWindow):
                 self.cargarTabla(df)
                 # Mostrar botón de seleccionar columnas
                 self.ui.btnSeleccionarColumnas.show()
-                #Para que en el caso de volver a meter un archivo no podamos preprocesarlo sin antes eleccionar las columansS
+                #Para que en el caso de volver a meter un archivo no podamos preprocesarlo sin antes eleccionar las columnas
                 self.ui.cmbOpcionesPreprocesado.hide()
                 self.ui.botonAplicarPreprocesado.hide()
                 self.ui.btnSeleccionarColumnas.setText("Seleccionar Columnas")
@@ -159,7 +153,6 @@ class MainWindowCtrl(QMainWindow):
             self.ui.tableViewDataFrame.setModel(model)
             self.ui.tableViewDataFrame.resizeColumnsToContents()
 
-
         except ValueError as e:
             msj.crearAdvertencia(self, "Error inesperado", 
                 "Se ha producido un error inesperado al crear la tabla")
@@ -194,7 +187,6 @@ class MainWindowCtrl(QMainWindow):
                 self.marcarColumnasSeleccionadas()
                 
                 # Mostrar combo de preprocesado
-                
                 ventanaColumnas.close()
                 #Ponemos que se vean despues de seleccionar
                 self.ui.cmbOpcionesPreprocesado.show()
@@ -225,7 +217,7 @@ class MainWindowCtrl(QMainWindow):
 
     def rellenarNanColumnasNumericas(self, df, metodo, valorConstante=None):
         """
-        Rellena valores NaN en columnas numéricas del DataFrame.
+        Rellena valores NaN en las columnas de entrada y salida seleccionadas.
         
         Args:
             df: DataFrame a procesar
@@ -233,92 +225,105 @@ class MainWindowCtrl(QMainWindow):
             valorConstante: valor a usar si metodo='constante'
             
         Returns:
-            DataFrame con valores NaN rellenados
+            DataFrame con valores NaN rellenados en las columnas seleccionadas
         """
+        # Solo procesar las columnas de entrada y salida
+        columnas_a_procesar = [self.columnaEntrada, self.columnaSalida]
         
-        for col in df.select_dtypes(include=[np.number]).columns:
-            if df[col].isna().any():
-                if metodo == 'media':
-                    valor = np.nanmean(df[col])
-                    df[col] = df[col].fillna(valor)
-                elif metodo == 'mediana':
-                    valor = np.nanmedian(df[col].to_numpy())
-                    df[col] = df[col].fillna(valor)
-                elif metodo == 'constante' and valorConstante is not None:
-                    df[col] = df[col].fillna(valorConstante)
+        for col in columnas_a_procesar:
+            # Verificar que la columna existe y es numérica
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                if df[col].isna().any():
+                    if metodo == 'media':
+                        valor = np.nanmean(df[col])
+                        df[col] = df[col].fillna(valor)
+                    elif metodo == 'mediana':
+                        valor = np.nanmedian(df[col].to_numpy())
+                        df[col] = df[col].fillna(valor)
+                    elif metodo == 'constante' and valorConstante is not None:
+                        df[col] = df[col].fillna(valorConstante)
         
         return df
-    
 
-    #mañana lo arreglo
     def aplicarPreprocesado(self):
         """Aplica la operación de preprocesamiento seleccionada"""
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "No hay datos cargados")
             return
         
+        # Verificar que se hayan seleccionado columnas
+        if self.columnaEntrada is None or self.columnaSalida is None:
+            msj.crearAdvertencia(self, "Sin columnas seleccionadas", 
+                "Debe seleccionar las columnas de entrada y salida primero")
+            return
+        
         self.dfProcesado = self.df.copy(deep=True)
         opcion = self.ui.cmbOpcionesPreprocesado.currentText()
-        #PONERLO PARA AL TOCAR EL BOTON
 
-        #MODIFICO CON MATCH CASE PARA HACERLO MAS LEGIBLE Y CORTO        
         try:
             match opcion:
                 case "Eliminar filas con NaN":
-                    nanAntes = self.dfProcesado.isna().sum().sum()
-                    self.dfProcesado.dropna(inplace=True, ignore_index=True)
-                    nanDespues = self.dfProcesado.isna().sum().sum()
+                    nanAntes = self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()
+                    # Eliminar filas que tengan NaN en las columnas seleccionadas
+                    self.dfProcesado.dropna(subset=[self.columnaEntrada, self.columnaSalida], 
+                                        inplace=True, ignore_index=True)
                     
                     msj.crearInformacion(self, "Preprocesado Aplicado",
-                        f"Filas eliminadas: {len(self.dfProcesado) - len(self.dfProcesado)}\n"
+                        f"Filas eliminadas: {len(self.df) - len(self.dfProcesado)}\n"
                         f"NaN eliminados: {nanAntes}")
                 
                 case "Rellenar con la media (Numpy)":
                     self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='media')
                     msj.crearInformacion(self, "Preprocesado Aplicado",
-                        "NaN rellenados con la media")
+                        "NaN rellenados con la media en columnas seleccionadas")
                 
                 case "Rellenar con la mediana":
                     self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='mediana')
                     msj.crearInformacion(self, "Preprocesado Aplicado",
-                        "NaN rellenados con la mediana")
-                # NO FUNCIONABA
+                        "NaN rellenados con la mediana en columnas seleccionadas")
+                
                 case "Rellenar con un valor constante":
                     from PyQt6.QtWidgets import QInputDialog
                     valorConstante, ok = QInputDialog.getText(self, "Valor constante",
                         "Introduce el valor constante para rellenar NaN:")
                     
-                    if ok and valorConstante:  # Verificar que el usuario no canceló
-                        valorNumerico = float(valorConstante)  # Convertir a número
+                    if ok and valorConstante:
+                        valorNumerico = float(valorConstante)
                         self.dfProcesado = self.rellenarNanColumnasNumericas(
                             self.dfProcesado, 
                             metodo='constante', 
                             valorConstante=valorNumerico
                         )
+                        msj.crearInformacion(self, "Preprocesado Aplicado",
+                            f"NaN rellenados con {valorNumerico} en columnas seleccionadas")
                     else:
-                        return  # Usuario canceló o no ingresó nada
-                
+                        return
             
             self.cargarTabla(self.dfProcesado)
             
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
             mensaje += f"Filas: {len(self.df)} → {len(self.dfProcesado)}\n"
-            mensaje += f"NaN: {self.df.isna().sum().sum()} → {self.dfProcesado.isna().sum().sum()}"
+            mensaje += f"NaN en columnas seleccionadas: {self.df[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()} → {self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()}"
             msj.crearInformacion(self, "Éxito", mensaje)
             
-            # Verificar si hay NaN después del preprocesado
-            # Mostrar botón de dividir datos
-            self.ui.botonDividirTest.show()
-            self.ui.lblDivision.show()
-            self.ui.numeroSliderTest.show()
-            self.ui.sliderProporcionTest.show()
+            # Verificar si hay NaN en las columnas de entrada y salida
+            if not self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isnull().values.any():
+                # Mostrar botón de dividir datos
+                self.ui.botonDividirTest.show()
+                self.ui.lblDivision.show()
+                self.ui.numeroSliderTest.show()
+                self.ui.sliderProporcionTest.show()
+            else:
+                msj.crearAdvertencia(self, "NaN restantes", 
+                    "Aún quedan valores NaN en las columnas seleccionadas.\n"
+                    "Debe aplicar otro método de preprocesado.")
             
         except Exception as e:
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
 
     # ==================== MÉTODOS DEL DATASPLIT ====================
-    #VOLVÍ A UNA VERSIÓN ANTERIOR DE LO DEL BELTRÁN CON EL SLIDER
+
     def _actualizarPorcentajeTest(self):
         """Actualiza la proporción de test según el valor del slider"""
         value = self.ui.sliderProporcionTest.value()
@@ -326,38 +331,33 @@ class MainWindowCtrl(QMainWindow):
 
     def _ejecutarDatasplit(self, tamañoTest):  
         """Realiza el datasplit en dataFrameTrain y dataFrameTest"""
-        # Verificar que existe dfProcesado
         if self.dfProcesado is None:
-            msj.crearAdvertencia(self, "Sin datos procesados", 
-                "Debe aplicar un preprocesado primero")
-            return False
+            self.dataFrameTrain, self.dataFrameTest = train_test_split(self.df, test_size=tamañoTest)   
+            return
         
-        # Verificar que no hay nulos
-        if self.dfProcesado.isnull().values.any():
+        # Verificar que no hay nulos en las columnas seleccionadas
+        columnas_importantes = [self.columnaEntrada, self.columnaSalida]
+        if self.dfProcesado[columnas_importantes].isnull().values.any() == True:
             msj.crearAdvertencia(self, "Presencia de Nulos", 
-                "Para continuar al datasplit no puede tener nulos en el dataframe")
-            return False
+                "Para continuar al datasplit no puede tener nulos en las columnas de entrada o salida")
+            return
         
-        # Realizar el split
-        self.dataFrameTrain, self.dataFrameTest = train_test_split(
-            self.dfProcesado, 
-            test_size=tamañoTest,
-            random_state=42  # Para reproducibilidad
-        )
-        
-        return True
+        self.dataFrameTrain, self.dataFrameTest = train_test_split(self.dfProcesado, test_size=tamañoTest)
 
     def _mostrarResultadosSplit(self):
         """Calcula las líneas de cada parte y su porcentaje real y lo muestra"""
         if self.dataFrameTrain is None or self.dataFrameTest is None:
             return
         
+        # Usar dfProcesado si existe, sino usar df
+        df_base = self.dfProcesado if self.dfProcesado is not None else self.df
+        
         # Líneas y porcentaje de líneas del entrenamiento
-        porcentajeTrain = (len(self.dataFrameTrain) / len(self.dfProcesado)) * 100
+        porcentajeTrain = (len(self.dataFrameTrain) / len(df_base)) * 100
         mensajeTrain = f"{len(self.dataFrameTrain)} Líneas de Entrenamiento --- {porcentajeTrain:.2f}% de los datos"
         
         # Líneas y porcentaje de líneas del test
-        porcentajeTest = (len(self.dataFrameTest) / len(self.dfProcesado)) * 100
+        porcentajeTest = (len(self.dataFrameTest) / len(df_base)) * 100
         mensajeTest = f"{len(self.dataFrameTest)} Líneas de Test --- {porcentajeTest:.2f}% de los datos"
         
         # Mostrar en un mensaje informativo
@@ -373,13 +373,12 @@ class MainWindowCtrl(QMainWindow):
         self._actualizarPorcentajeTest()
         
         # Ejecutar el datasplit
-        if self._ejecutarDatasplit(self.proporcionDeTest):
-            # Si fue exitoso, mostrar los resultados
+        self._ejecutarDatasplit(self.proporcionDeTest)
+        
+        # Mostrar los resultados si el split fue exitoso
+        if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
 
-
-
-        #para q os hagais una idea-> habria que ver como poner un QstackedWidget
     def pasarSiguientePestana(self):
         """
         Pasa a la siguiente pestaña del QStackedWidget.
@@ -400,4 +399,3 @@ if __name__ == "__main__":
     ventana = MainWindowCtrl()
     ventana.show()
     sys.exit(app.exec())
-
