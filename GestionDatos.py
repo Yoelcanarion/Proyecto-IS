@@ -1,4 +1,5 @@
 import pandas as pd
+import pickle as pk
 #LEED LOS COMENTARIOS
 #En este archivo deberia ir todo lo relacionado con carga actualizacion y consulta a datos(CRUD)
 
@@ -13,3 +14,51 @@ def cargaColumnas(datos):
         return datos.columns.tolist()
     except:
         raise "Ha habido algun error durante la extraccion de columnas"
+    
+def crearDiccionarioModelo(modelo,descripcion,colEntr,colSal,r2Tr, r2Tes,ecmTr,ecmTes):
+    modeloGuardado = {
+    "modelo": modelo,
+    "descripcion": descripcion,
+    "columnas_entrada": colEntr,
+    "columna_salida": colSal,
+    "metricas": {
+        "R2_train": r2Tr,
+        "R2_test": r2Tes,
+        "ECM_train": ecmTr,
+        "ECM_test": ecmTes
+    },
+    "formula": f"y = {modelo.coef_[0]:.2f} * x + {modelo.intercept_:.2f}"
+    }
+    return modeloGuardado
+
+import pickle as pk
+
+def crearModeloDisco(dict_modelo, ruta):
+    """
+    Guarda un modelo de regresión lineal y sus metadatos en disco.
+    
+    Parámetros:
+        dict_modelo: diccionario con el modelo y su información asociada
+        ruta: ruta del archivo donde se guardará el modelo (.pkl)
+    
+    Retorna:
+        None si todo ha ido bien.
+        str con el mensaje de error si ha ocurrido un fallo durante la serialización o el guardado.
+    """
+    try:
+        with open(ruta, 'wb') as f:
+            pk.dump(dict_modelo, f)
+        return None  # Éxito
+    except (pk.PickleError, TypeError) as e:
+        # Errores específicos de serialización
+        return f"Error al serializar el modelo: {e}"
+    except OSError as e:
+        # Errores del sistema (ruta no válida, permisos, espacio, etc.)
+        return f"Error al acceder al archivo: {e}"
+    except Exception as e:
+        # Cualquier otro error no previsto
+        return f"Error desconocido al guardar el modelo: {e}"
+
+        
+    
+    

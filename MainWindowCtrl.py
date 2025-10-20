@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar)
 from MainWindowUI import Ui_MainWindow
 import ImportacionDatos as impd
+import GestionDatos as gd
+import pickle as pk
 from UtilidadesInterfaz import PandasModel as mp
 from UtilidadesInterfaz import Mensajes as msj
 from VentanaCargaCtrl import VentanaCargaCtrl
@@ -40,6 +42,16 @@ class MainWindowCtrl(QMainWindow):
         # Columnas seleccionadas para entrada y salida
         self.columnaEntrada = None
         self.columnaSalida = None
+        
+        #Modelo
+        self.modelo=None
+        self.descripcionModelo=None
+        
+        #Metricas
+        self.r2Train=None
+        self.r2Test=None
+        self.ecmTrain=None
+        self.ecmTest=None
         
         # Configuración inicial
         self.configurarInterfaz()
@@ -393,6 +405,41 @@ class MainWindowCtrl(QMainWindow):
         msj.crearInformacion(self, "Siguiente Fase",
             "Pasando a la fase de análisis y gráficas...\n"
             "(Esta funcionalidad se implementará posteriormente)")
+
+    def cargarModelo(self,ruta):
+        if ruta !=None:
+            parametros = {
+            "modelo": self.modelo,
+            "descripcion": self.descripcionModelo,
+            "columnaEntrada": self.columnaEntrada,
+            "columnaSalida": self.columnaSalida,
+            "r2Train": self.r2Train,
+            "r2Test": self.r2Test,
+            "ecmTrain": self.ecmTrain,
+            "ecmTest": self.ecmTest
+            }
+
+            faltantes = [nombre for nombre, valor in parametros.items() if valor is None]
+
+            if faltantes:
+                msj.crearAdvertencia(self,f"Error: faltan los siguientes parámetros:", faltantes)
+            else:
+                    dict = gd.crearDiccionarioModelo(**parametros)
+                    try:
+                        gd.crearModeloDisco(dict,ruta)
+                        msj.crearInformacion(self, "Exito", "Se ha guardado correctamente el modelo")
+                    except (pk.PickleError, TypeError) as e:
+                    # Errores específicos de serialización
+                        msj.crearAdvertencia(self,f"Error al serializar el modelo", e)
+                    except OSError as e:
+                    # Errores del sistema (ruta no válida, permisos, espacio, etc.)
+                        msj.crearAdvertencia(self,f"Error al acceder al archivo", e)
+                    except Exception as e:
+                    # Cualquier otro error no previsto
+                        msj.crearAdvertencia(self,f"Error no previsto al guardar el modelo", e)
+        else:
+                msj.crearAdvertencia("Error de creacion",
+                                 "Se debe introducir una ruta para cargar el modelo")
 
 
 if __name__ == "__main__":
