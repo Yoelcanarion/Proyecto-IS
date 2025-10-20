@@ -184,7 +184,7 @@ class MainWindowCtrl(QMainWindow):
                     f"Entrada: {entrada}\nSalida: {salida}")
                 
                 # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
-                self.marcarColumnasSeleccionadas()
+                self.marcarColumnasSeleccionadas(self.df)
                 
                 # Mostrar combo de preprocesado
                 ventanaColumnas.close()
@@ -202,11 +202,11 @@ class MainWindowCtrl(QMainWindow):
         
         ventanaColumnas.show()
     
-    def marcarColumnasSeleccionadas(self):
+    def marcarColumnasSeleccionadas(self,dfEntr):
         if self.df is None or self.columnaEntrada is None or self.columnaSalida is None:
             return
         
-        model = PandasModelConColor(self.df, columna_verde=self.columnaEntrada, 
+        model = PandasModelConColor(dfEntr, columna_verde=self.columnaEntrada, 
                                     columna_roja=self.columnaSalida, tachar_nan=True)
         self.ui.tableViewDataFrame.setModel(model)
         self.ui.tableViewDataFrame.resizeColumnsToContents()
@@ -300,6 +300,7 @@ class MainWindowCtrl(QMainWindow):
                         return
             
             self.cargarTabla(self.dfProcesado)
+            self.marcarColumnasSeleccionadas(self.dfProcesado)
             
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
