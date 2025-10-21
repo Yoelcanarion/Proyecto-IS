@@ -5,7 +5,7 @@ import numpy as np
 from scipy import stats
 from sklearn.model_selection import train_test_split
 
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar)
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget
 from MainWindowUI import Ui_MainWindow
 import ImportacionDatos as impd
 import GestionDatos as gd
@@ -32,6 +32,7 @@ class MainWindowCtrl(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.ui.stackedWidget.setCurrentWidget(self.ui.page1)
         
         # DataFrames
         self._df = None
@@ -201,6 +202,11 @@ class MainWindowCtrl(QMainWindow):
                 # Mostrar combo de preprocesado
                 ventanaColumnas.close()
                 #Ponemos que se vean despues de seleccionar
+                self.ui.botonDividirTest.hide()
+                self.ui.btnPasarSiguientePestana.hide()
+                self.ui.numeroSliderTest.hide()
+                self.ui.sliderProporcionTest.hide()
+                self.ui.lblDivision.hide()
                 self.ui.cmbOpcionesPreprocesado.show()
                 self.ui.botonAplicarPreprocesado.show()
 
@@ -440,6 +446,7 @@ class MainWindowCtrl(QMainWindow):
         else:
                 msj.crearAdvertencia("Error de creacion",
                                  "Se debe introducir una ruta para cargar el modelo")
+    
 
 
 if __name__ == "__main__":
