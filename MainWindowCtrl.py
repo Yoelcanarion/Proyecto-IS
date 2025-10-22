@@ -111,16 +111,15 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnInicialCrearModelo.clicked.connect((lambda: self.cambiarPagina(1)))#PARA PASAR A LA DE PREPROCESADO
         self.ui.btnInicialCargarModelo.clicked.connect((lambda: self.cambiarPagina(2)))#PARA PASAR A LA DE REGRESIÓN LINEAL
 
-
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect((lambda: self.cambiarPagina(2))) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect((lambda: self.cambiarPagina(1))) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
-        self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-2)))# ESTA ES LA DE  LA GRAFICA
+        self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-1)))# ESTA ES LA DE  LA GRAFICA
         #cargar modelo
-        #self.ui.btnCargarModelo.clicked.connect()#AÚN NO FUNCIONA BIEN
-        self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
+        self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)#AÚN NO FUNCIONA BIEN
+        #self.ui.btnGuardarModelo.clicked.connect()
         #self.ui.textDescribirModelo.textChanged.connect()
         self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
@@ -501,6 +500,78 @@ class MainWindowCtrl(QMainWindow):
                 msj.crearAdvertencia(self, "Error no previsto al guardar el modelo", str(e))
         else:
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
+
+        
+    def crearAjustarModelo(self):
+        self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
+        self.yTrain = self.dataFrameTrain[self.columnaSalida]
+        self.xTest = self.dataFrameTest[[self.columnaEntrada]]
+        self.yTest = self.dataFrameTest[self.columnaSalida]
+
+        self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
+
+        yTrainPred = self.modelo.predict(self.xTrain)
+        yTestPred = self.modelo.predict(self.xTest)
+
+        self.r2Train = r2_score(self.yTrain, yTrainPred)
+        self.r2Test = r2_score(self.yTest, yTestPred)
+
+        self.ecmTrain = mean_squared_error(self.yTrain, yTrainPred)
+        self.ecmTest = mean_squared_error(self.yTest, yTestPred) 
+
+    def plotGrafica(self):
+    # Mostrar y actualizar barra de progreso
+        self.ui.barraProgreso.setVisible(True)
+        self.ui.barraProgreso.setValue(0)
+        QCoreApplication.processEvents()
+
+        # Preparar datos
+        self.ui.barraProgreso.setValue(40)
+        QCoreApplication.processEvents()
+
+        plt.figure(figsize=(6, 4))
+        
+        # Graficar datos de entrenamiento y prueba
+        sns.scatterplot(x=self.xTrain[self.columnaEntrada], y=self.yTrain, color='blue', label='Train')
+        sns.scatterplot(x=self.xTest[self.columnaEntrada], y=self.yTest, color='orange', label='Test')
+
+        # Dibujar la línea del modelo
+        x_vals = np.linspace(
+            self.dataFrameTrain[self.columnaEntrada].min(),
+            self.dataFrameTrain[self.columnaEntrada].max(), 100
+        ).reshape(-1, 1)
+        y_vals = self.modelo.predict(x_vals)
+        plt.plot(x_vals, y_vals, color='red', label='Modelo')
+
+        # Personalizar la gráfica
+        plt.title("Ajuste del modelo lineal")
+        plt.xlabel(self.columnaEntrada)
+        plt.ylabel(self.columnaSalida)
+        plt.legend()
+        plt.grid(True)
+
+        # Actualizar barra
+        self.ui.barraProgreso.setValue(80)
+        QCoreApplication.processEvents()
+
+        # Mostrar la gráfica en una ventana nueva
+        plt.show()
+
+        # Finalizar barra
+        self.ui.barraProgreso.setValue(100)
+        QCoreApplication.processEvents()
+        self.ui.barraProgreso.setVisible(False)
+
+    def pipelineModelo(self):
+        self.crearAjustarModelo() 
+        self.plotGrafica()
+        self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
+        self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_} + {self.modelo.coef_}*x")
+        self.ui.propiedadesModelo.show()
+        self.ui.btnGuardarModelo.show()
+        self.ui.textDescribirModelo.show()
+
+
 
         
     def crearAjustarModelo(self):
