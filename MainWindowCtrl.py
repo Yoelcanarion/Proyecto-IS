@@ -6,8 +6,6 @@ from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
-
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget, QVBoxLayout
@@ -89,7 +87,7 @@ class MainWindowCtrl(QMainWindow):
         #El que aplica la division
         self.ui.botonDividirTest.hide()
         #El de pasar a la siguiente pestaña
-        self.ui.btnPasarSiguientePestana.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
         self.ui.textDescribirModelo.hide()
         self.ui.propiedadesModelo.hide()
         self.ui.barraProgreso.hide()
@@ -108,12 +106,20 @@ class MainWindowCtrl(QMainWindow):
 
     def conectarSenalesPreproceso(self):
         """Conectar señales de los botones y widgets"""
+        #PAGINA INICIAL
+        self.ui.btnInicialCrearModelo.clicked.connect((lambda: self.cambiarPagina(1)))#PARA PASAR A LA DE PREPROCESADO
+        self.ui.btnInicialCargarModelo.clicked.connect((lambda: self.cambiarPagina(2)))#PARA PASAR A LA DE REGRESIÓN LINEAL
+
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        self.ui.btnPasarSiguientePestana.clicked.connect(self.pasarSiguientePestana)
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect((lambda: self.cambiarPagina(1))) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
-        self.ui.btnPasarAnteriorPestana.clicked.connect(self.pasarAnteriorPestana)
+        self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-1)))# ESTA ES LA DE  LA GRAFICA
+        #cargar modelo
+        self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)#AÚN NO FUNCIONA BIEN
+        #self.ui.btnGuardarModelo.clicked.connect()
+        #self.ui.textDescribirModelo.textChanged.connect()
         self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
     def abrirExplorador(self):
@@ -128,6 +134,15 @@ class MainWindowCtrl(QMainWindow):
             ValueError: Si ocurre un error inesperado al cargar los datos.
             FileNotFoundError: Si el archivo seleccionado no se encuentra.
         """
+        #OCULTAMOS BOTONES DE PREPROCESADO Y POSTERIORES
+        self.ui.cmbOpcionesPreprocesado.hide()
+        self.ui.botonAplicarPreprocesado.hide()
+        self.ui.botonDividirTest.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
+        self.ui.numeroSliderTest.hide()
+        self.ui.sliderProporcionTest.hide()
+        self.ui.lblDivision.hide()
+
         ruta, _ = QFileDialog.getOpenFileName(
             self,
             "Abrir dataset",
@@ -191,9 +206,18 @@ class MainWindowCtrl(QMainWindow):
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "Primero debe cargar un archivo")
             return
+        #Me aeguro de que no aparezcan botones posteriores a seleccionar columnas
+        self.ui.cmbOpcionesPreprocesado.hide()
+        self.ui.botonAplicarPreprocesado.hide()
+        self.ui.botonDividirTest.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
+        self.ui.numeroSliderTest.hide()
+        self.ui.sliderProporcionTest.hide()
+        self.ui.lblDivision.hide()
         
         # Crear y mostrar ventana de selección de columnas
         ventanaColumnas = VentanaCargaCtrl(self.df)
+
         
         # Modificar el método confirmarSeleccion para que cierre y guarde las columnas
         def confirmarYCerrar():
@@ -216,7 +240,7 @@ class MainWindowCtrl(QMainWindow):
                 ventanaColumnas.close()
                 #Ponemos que se vean despues de seleccionar
                 self.ui.botonDividirTest.hide()
-                self.ui.btnPasarSiguientePestana.hide()
+                self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
                 self.ui.numeroSliderTest.hide()
                 self.ui.sliderProporcionTest.hide()
                 self.ui.lblDivision.hide()
@@ -397,7 +421,7 @@ class MainWindowCtrl(QMainWindow):
             f"{mensajeTrain}\n{mensajeTest}")
         
         # Mostrar botón para pasar a siguiente pestaña
-        self.ui.btnPasarSiguientePestana.show()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.show()
 
     def procesoDataSplit(self):
         """Realiza el proceso de datasplit y muestra los resultados"""
@@ -411,17 +435,15 @@ class MainWindowCtrl(QMainWindow):
         if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
 
-    def pasarSiguientePestana(self):
-        """
-        Pasa a la siguiente pestaña del QStackedWidget.
-        Aquí se incluirían gráficas y análisis posteriores.
-        """
-        if self.dataFrameTrain is None or self.dataFrameTest is None:
-            msj.crearAdvertencia(self, "Error",
-                "Debe dividir los datos primero")
-            return
-        
-        self.ui.stackedWidget.setCurrentIndex(1)
+        #AÑADIDO
+    def cambiarPagina(self, nPaginasAMover):
+        """Cambia de página en el QStackedWidget según el número de páginas a mover""" #puede ser negativo o positivo
+        indiceActual = self.ui.stackedWidget.currentIndex()
+        nuevoIndice = indiceActual + nPaginasAMover
+        if 0 <= nuevoIndice < self.ui.stackedWidget.count():
+            self.ui.stackedWidget.setCurrentIndex(nuevoIndice)
+
+    #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
 
     def cargarModelo(self,ruta):
         if ruta !=None:
@@ -459,11 +481,8 @@ class MainWindowCtrl(QMainWindow):
                                  "Se debe introducir una ruta para cargar el modelo")
 
 
-    #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
     
-    def pasarAnteriorPestana(self):
-        """Volver a la pestaña de procesado"""
-        self.ui.stackedWidget.setCurrentIndex(0)
+
         
     def crearAjustarModelo(self):
         self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
@@ -528,16 +547,11 @@ class MainWindowCtrl(QMainWindow):
     def pipelineModelo(self):
         self.crearAjustarModelo() 
         self.plotGrafica()
-        self.ui.labelR2yECM.setText(f"R**2 Entrenamiento: {self.r2Train:.4f} \n \
-                                    R**2 Test: {self.r2Test:.4f} \n \n \
-                                    ECM Entrenamiento: {self.ecmTrain:.4f} \n \
-                                    ECM Test: {self.ecmTest:.4f}")
+        self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
         self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_} + {self.modelo.coef_}*x")
         self.ui.propiedadesModelo.show()
         self.ui.btnGuardarModelo.show()
         self.ui.textDescribirModelo.show()
-        
-
 
 
 
