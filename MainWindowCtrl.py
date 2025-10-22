@@ -4,8 +4,14 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget, QVBoxLayout
+from PyQt6.QtCore import QCoreApplication
 from MainWindowUI import Ui_MainWindow
 import ImportacionDatos as impd
 import GestionDatos as gd
@@ -32,8 +38,7 @@ class MainWindowCtrl(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.ui.stackedWidget.setCurrentWidget(self.ui.page1)
-        
+        self.ui.stackedWidget.setCurrentIndex(0)        
         # DataFrames
         self._df = None
         self.dfProcesado = None
@@ -85,6 +90,12 @@ class MainWindowCtrl(QMainWindow):
         self.ui.botonDividirTest.hide()
         #El de pasar a la siguiente pestaña
         self.ui.btnPasarSiguientePestana.hide()
+        self.ui.textDescribirModelo.hide()
+        self.ui.propiedadesModelo.hide()
+        self.ui.barraProgreso.hide()
+        self.ui.btnGuardarModelo.hide()
+       
+
     
         # Añadir opciones al combo de preprocesamiento
         self.ui.cmbOpcionesPreprocesado.addItems([
@@ -102,6 +113,8 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnPasarSiguientePestana.clicked.connect(self.pasarSiguientePestana)
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
+        self.ui.btnPasarAnteriorPestana.clicked.connect(self.pasarAnteriorPestana)
+        self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
     def abrirExplorador(self):
         """
@@ -408,9 +421,7 @@ class MainWindowCtrl(QMainWindow):
                 "Debe dividir los datos primero")
             return
         
-        msj.crearInformacion(self, "Siguiente Fase",
-            "Pasando a la fase de análisis y gráficas...\n"
-            "(Esta funcionalidad se implementará posteriormente)")
+        self.ui.stackedWidget.setCurrentIndex(1)
 
     def cargarModelo(self,ruta):
         if ruta !=None:
@@ -446,7 +457,89 @@ class MainWindowCtrl(QMainWindow):
         else:
                 msj.crearAdvertencia("Error de creacion",
                                  "Se debe introducir una ruta para cargar el modelo")
+
+
+    #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
     
+    def pasarAnteriorPestana(self):
+        """Volver a la pestaña de procesado"""
+        self.ui.stackedWidget.setCurrentIndex(0)
+        
+    def crearAjustarModelo(self):
+        self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
+        self.yTrain = self.dataFrameTrain[self.columnaSalida]
+        self.xTest = self.dataFrameTest[[self.columnaEntrada]]
+        self.yTest = self.dataFrameTest[self.columnaSalida]
+
+        self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
+
+        yTrainPred = self.modelo.predict(self.xTrain)
+        yTestPred = self.modelo.predict(self.xTest)
+
+        self.r2Train = r2_score(self.yTrain, yTrainPred)
+        self.r2Test = r2_score(self.yTest, yTestPred)
+
+        self.ecmTrain = mean_squared_error(self.yTrain, yTrainPred)
+        self.ecmTest = mean_squared_error(self.yTest, yTestPred) 
+
+    def plotGrafica(self):
+    # Mostrar y actualizar barra de progreso
+        self.ui.barraProgreso.setVisible(True)
+        self.ui.barraProgreso.setValue(0)
+        QCoreApplication.processEvents()
+
+        # Preparar datos
+        self.ui.barraProgreso.setValue(40)
+        QCoreApplication.processEvents()
+
+        plt.figure(figsize=(6, 4))
+        
+        # Graficar datos de entrenamiento y prueba
+        sns.scatterplot(x=self.xTrain[self.columnaEntrada], y=self.yTrain, color='blue', label='Train')
+        sns.scatterplot(x=self.xTest[self.columnaEntrada], y=self.yTest, color='orange', label='Test')
+
+        # Dibujar la línea del modelo
+        x_vals = np.linspace(
+            self.dataFrameTrain[self.columnaEntrada].min(),
+            self.dataFrameTrain[self.columnaEntrada].max(), 100
+        ).reshape(-1, 1)
+        y_vals = self.modelo.predict(x_vals)
+        plt.plot(x_vals, y_vals, color='red', label='Modelo')
+
+        # Personalizar la gráfica
+        plt.title("Ajuste del modelo lineal")
+        plt.xlabel(self.columnaEntrada)
+        plt.ylabel(self.columnaSalida)
+        plt.legend()
+        plt.grid(True)
+
+        # Actualizar barra
+        self.ui.barraProgreso.setValue(80)
+        QCoreApplication.processEvents()
+
+        # Mostrar la gráfica en una ventana nueva
+        plt.show()
+
+        # Finalizar barra
+        self.ui.barraProgreso.setValue(100)
+        QCoreApplication.processEvents()
+        self.ui.barraProgreso.setVisible(False)
+
+    def pipelineModelo(self):
+        self.crearAjustarModelo() 
+        self.plotGrafica()
+        self.ui.labelR2yECM.setText(f"R**2 Entrenamiento: {self.r2Train:.4f} \n \
+                                    R**2 Test: {self.r2Test:.4f} \n \n \
+                                    ECM Entrenamiento: {self.ecmTrain:.4f} \n \
+                                    ECM Test: {self.ecmTest:.4f}")
+        self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_} + {self.modelo.coef_}*x")
+        self.ui.propiedadesModelo.show()
+        self.ui.btnGuardarModelo.show()
+        self.ui.textDescribirModelo.show()
+        
+
+
+
 
 
 if __name__ == "__main__":
