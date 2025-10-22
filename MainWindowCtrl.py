@@ -118,8 +118,8 @@ class MainWindowCtrl(QMainWindow):
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
         self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-1)))# ESTA ES LA DE  LA GRAFICA
         #cargar modelo
-        self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)#AÚN NO FUNCIONA BIEN
-        #self.ui.btnGuardarModelo.clicked.connect()
+        #self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)#AÚN NO FUNCIONA BIEN
+        self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
         #self.ui.textDescribirModelo.textChanged.connect()
         self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
