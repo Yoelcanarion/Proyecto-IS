@@ -4,8 +4,13 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 from sklearn.model_selection import train_test_split
-
-from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error
+import matplotlib.pyplot as plt
+import seaborn as sns
+from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget, QVBoxLayout
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QCoreApplication
 from MainWindowUI import Ui_MainWindow
 import ImportacionDatos as impd
 import GestionDatos as gd
@@ -32,8 +37,7 @@ class MainWindowCtrl(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.ui.stackedWidget.setCurrentWidget(self.ui.page1)
-        
+        self.ui.stackedWidget.setCurrentIndex(0)        
         # DataFrames
         self._df = None
         self.dfProcesado = None
@@ -84,7 +88,13 @@ class MainWindowCtrl(QMainWindow):
         #El que aplica la division
         self.ui.botonDividirTest.hide()
         #El de pasar a la siguiente pestaña
-        self.ui.btnPasarSiguientePestana.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
+        self.ui.textDescribirModelo.hide()
+        self.ui.propiedadesModelo.hide()
+        self.ui.barraProgreso.hide()
+        self.ui.btnGuardarModelo.hide()
+       
+
     
         # Añadir opciones al combo de preprocesamiento
         self.ui.cmbOpcionesPreprocesado.addItems([
@@ -97,11 +107,22 @@ class MainWindowCtrl(QMainWindow):
 
     def conectarSenalesPreproceso(self):
         """Conectar señales de los botones y widgets"""
+        #PAGINA INICIAL
+        self.ui.btnInicialCrearModelo.clicked.connect((lambda: self.cambiarPagina(1)))#PARA PASAR A LA DE PREPROCESADO
+        self.ui.btnInicialCargarModelo.clicked.connect((lambda: self.cambiarPagina(2)))#PARA PASAR A LA DE REGRESIÓN LINEAL
+
+
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        self.ui.btnPasarSiguientePestana.clicked.connect(self.pasarSiguientePestana)
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect((lambda: self.cambiarPagina(2))) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
+        self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-2)))# ESTA ES LA DE  LA GRAFICA
+        #cargar modelo
+        #self.ui.btnCargarModelo.clicked.connect()#AÚN NO FUNCIONA BIEN
+        self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
+        #self.ui.textDescribirModelo.textChanged.connect()
+        self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
     def abrirExplorador(self):
         """
@@ -115,6 +136,15 @@ class MainWindowCtrl(QMainWindow):
             ValueError: Si ocurre un error inesperado al cargar los datos.
             FileNotFoundError: Si el archivo seleccionado no se encuentra.
         """
+        #OCULTAMOS BOTONES DE PREPROCESADO Y POSTERIORES
+        self.ui.cmbOpcionesPreprocesado.hide()
+        self.ui.botonAplicarPreprocesado.hide()
+        self.ui.botonDividirTest.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
+        self.ui.numeroSliderTest.hide()
+        self.ui.sliderProporcionTest.hide()
+        self.ui.lblDivision.hide()
+
         ruta, _ = QFileDialog.getOpenFileName(
             self,
             "Abrir dataset",
@@ -178,9 +208,18 @@ class MainWindowCtrl(QMainWindow):
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "Primero debe cargar un archivo")
             return
+        #Me aeguro de que no aparezcan botones posteriores a seleccionar columnas
+        self.ui.cmbOpcionesPreprocesado.hide()
+        self.ui.botonAplicarPreprocesado.hide()
+        self.ui.botonDividirTest.hide()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
+        self.ui.numeroSliderTest.hide()
+        self.ui.sliderProporcionTest.hide()
+        self.ui.lblDivision.hide()
         
         # Crear y mostrar ventana de selección de columnas
         ventanaColumnas = VentanaCargaCtrl(self.df)
+
         
         # Modificar el método confirmarSeleccion para que cierre y guarde las columnas
         def confirmarYCerrar():
@@ -203,7 +242,7 @@ class MainWindowCtrl(QMainWindow):
                 ventanaColumnas.close()
                 #Ponemos que se vean despues de seleccionar
                 self.ui.botonDividirTest.hide()
-                self.ui.btnPasarSiguientePestana.hide()
+                self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
                 self.ui.numeroSliderTest.hide()
                 self.ui.sliderProporcionTest.hide()
                 self.ui.lblDivision.hide()
@@ -384,7 +423,7 @@ class MainWindowCtrl(QMainWindow):
             f"{mensajeTrain}\n{mensajeTest}")
         
         # Mostrar botón para pasar a siguiente pestaña
-        self.ui.btnPasarSiguientePestana.show()
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.show()
 
     def procesoDataSplit(self):
         """Realiza el proceso de datasplit y muestra los resultados"""
@@ -398,55 +437,142 @@ class MainWindowCtrl(QMainWindow):
         if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
 
-    def pasarSiguientePestana(self):
-        """
-        Pasa a la siguiente pestaña del QStackedWidget.
-        Aquí se incluirían gráficas y análisis posteriores.
-        """
-        if self.dataFrameTrain is None or self.dataFrameTest is None:
-            msj.crearAdvertencia(self, "Error",
-                "Debe dividir los datos primero")
-            return
-        
-        msj.crearInformacion(self, "Siguiente Fase",
-            "Pasando a la fase de análisis y gráficas...\n"
-            "(Esta funcionalidad se implementará posteriormente)")
+        #AÑADIDO
+    def cambiarPagina(self, nPaginasAMover):
+        """Cambia de página en el QStackedWidget según el número de páginas a mover""" #puede ser negativo o positivo
+        indiceActual = self.ui.stackedWidget.currentIndex()
+        nuevoIndice = indiceActual + nPaginasAMover
+        if 0 <= nuevoIndice < self.ui.stackedWidget.count():
+            self.ui.stackedWidget.setCurrentIndex(nuevoIndice)
 
-    def cargarModelo(self,ruta):
-        if ruta !=None:
+    #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
+    def seleccionarRutaModelo(self):
+    # Abre un diálogo para elegir la ruta y el nombre del archivo .pkl
+        descr  = self.ui.textDescribirModelo.toPlainText()
+        if descr =="":
+                msj.crearInformacion(self,"Descripcion sin detalles", "No se ha escrito ninguna descripcion")
+
+        ruta, _ = QtWidgets.QFileDialog.getSaveFileName(
+        self,
+        "Guardar modelo como",
+        "",
+        "Modelos (*.pkl)"
+    )
+        if ruta:
+        # Asegurar que la extensión sea .pkl aunque el usuario no la escriba
+            if not ruta.lower().endswith(".pkl"):
+                ruta += ".pkl"
+            self.guardarModelo(ruta,descr)
+
+
+        
+    def guardarModelo(self, ruta,descr):
+        if ruta:
             parametros = {
-            "modelo": self.modelo,
-            "descripcion": self.descripcionModelo,
-            "columnaEntrada": self.columnaEntrada,
-            "columnaSalida": self.columnaSalida,
-            "r2Train": self.r2Train,
-            "r2Test": self.r2Test,
-            "ecmTrain": self.ecmTrain,
-            "ecmTest": self.ecmTest
+                "modelo": self.modelo,
+                "columnaEntrada": self.columnaEntrada,
+                "columnaSalida": self.columnaSalida,
+                "r2Train": self.r2Train,
+                "r2Test": self.r2Test,
+                "ecmTrain": self.ecmTrain,
+                "ecmTest": self.ecmTest
             }
 
-            faltantes = [nombre for nombre, valor in parametros.items() if valor is None]
+            # Agregar descripción desde el panel de texto
+            parametros["descripcion"] = descr
 
+            # Detectar parámetros faltantes
+            faltantes = [nombre for nombre, valor in parametros.items() if valor is None]
             if faltantes:
-                msj.crearAdvertencia(self,f"Error: faltan los siguientes parámetros:", faltantes)
-            else:
-                    dict = gd.crearDiccionarioModelo(**parametros)
-                    try:
-                        gd.crearModeloDisco(dict,ruta)
-                        msj.crearInformacion(self, "Exito", "Se ha guardado correctamente el modelo")
-                    except (pk.PickleError, TypeError) as e:
-                    # Errores específicos de serialización
-                        msj.crearAdvertencia(self,f"Error al serializar el modelo", e)
-                    except OSError as e:
-                    # Errores del sistema (ruta no válida, permisos, espacio, etc.)
-                        msj.crearAdvertencia(self,f"Error al acceder al archivo", e)
-                    except Exception as e:
-                    # Cualquier otro error no previsto
-                        msj.crearAdvertencia(self,f"Error no previsto al guardar el modelo", e)
+                msj.crearAdvertencia(self, "Error: faltan los siguientes parámetros:", f"{faltantes}")
+                return
+
+            # Crear diccionario del modelo
+            dict_modelo = gd.crearDiccionarioModelo(**parametros)
+
+            try:
+                # Guardar en disco usando tu función
+                error = gd.crearModeloDisco(dict_modelo, ruta)
+                if error:
+                    msj.crearAdvertencia(self, "Error al guardar el modelo", error)
+                else:
+                    msj.crearInformacion(self, "Éxito", "El modelo se ha guardado correctamente.")
+            except Exception as e:
+                msj.crearAdvertencia(self, "Error no previsto al guardar el modelo", str(e))
         else:
-                msj.crearAdvertencia("Error de creacion",
-                                 "Se debe introducir una ruta para cargar el modelo")
-    
+            msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
+
+        
+    def crearAjustarModelo(self):
+        self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
+        self.yTrain = self.dataFrameTrain[self.columnaSalida]
+        self.xTest = self.dataFrameTest[[self.columnaEntrada]]
+        self.yTest = self.dataFrameTest[self.columnaSalida]
+
+        self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
+
+        yTrainPred = self.modelo.predict(self.xTrain)
+        yTestPred = self.modelo.predict(self.xTest)
+
+        self.r2Train = r2_score(self.yTrain, yTrainPred)
+        self.r2Test = r2_score(self.yTest, yTestPred)
+
+        self.ecmTrain = mean_squared_error(self.yTrain, yTrainPred)
+        self.ecmTest = mean_squared_error(self.yTest, yTestPred) 
+
+    def plotGrafica(self):
+    # Mostrar y actualizar barra de progreso
+        self.ui.barraProgreso.setVisible(True)
+        self.ui.barraProgreso.setValue(0)
+        QCoreApplication.processEvents()
+
+        # Preparar datos
+        self.ui.barraProgreso.setValue(40)
+        QCoreApplication.processEvents()
+
+        plt.figure(figsize=(6, 4))
+        
+        # Graficar datos de entrenamiento y prueba
+        sns.scatterplot(x=self.xTrain[self.columnaEntrada], y=self.yTrain, color='blue', label='Train')
+        sns.scatterplot(x=self.xTest[self.columnaEntrada], y=self.yTest, color='orange', label='Test')
+
+        # Dibujar la línea del modelo
+        x_vals = np.linspace(
+            self.dataFrameTrain[self.columnaEntrada].min(),
+            self.dataFrameTrain[self.columnaEntrada].max(), 100
+        ).reshape(-1, 1)
+        y_vals = self.modelo.predict(x_vals)
+        plt.plot(x_vals, y_vals, color='red', label='Modelo')
+
+        # Personalizar la gráfica
+        plt.title("Ajuste del modelo lineal")
+        plt.xlabel(self.columnaEntrada)
+        plt.ylabel(self.columnaSalida)
+        plt.legend()
+        plt.grid(True)
+
+        # Actualizar barra
+        self.ui.barraProgreso.setValue(80)
+        QCoreApplication.processEvents()
+
+        # Mostrar la gráfica en una ventana nueva
+        plt.show()
+
+        # Finalizar barra
+        self.ui.barraProgreso.setValue(100)
+        QCoreApplication.processEvents()
+        self.ui.barraProgreso.setVisible(False)
+
+    def pipelineModelo(self):
+        self.crearAjustarModelo() 
+        self.plotGrafica()
+        self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
+        self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_} + {self.modelo.coef_}*x")
+        self.ui.propiedadesModelo.show()
+        self.ui.btnGuardarModelo.show()
+        self.ui.textDescribirModelo.show()
+
+
 
 
 if __name__ == "__main__":
