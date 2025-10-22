@@ -109,16 +109,16 @@ class MainWindowCtrl(QMainWindow):
         """Conectar señales de los botones y widgets"""
         #PAGINA INICIAL
         self.ui.btnInicialCrearModelo.clicked.connect((lambda: self.cambiarPagina(1)))#PARA PASAR A LA DE PREPROCESADO
-        self.ui.btnInicialCargarModelo.clicked.connect((lambda: self.cambiarPagina(2)))#PARA PASAR A LA DE REGRESIÓN LINEAL
+        self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)#PARA PASAR A LA DE REGRESIÓN LINEAL
 
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect((lambda: self.cambiarPagina(1))) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
+        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect(self.cambiarPestGraf) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
         self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect((lambda: self.cambiarPagina(-1)))# ESTA ES LA DE  LA GRAFICA
         #cargar modelo
-        #self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)#AÚN NO FUNCIONA BIEN
+        self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
         #self.ui.textDescribirModelo.textChanged.connect()
         self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
@@ -571,8 +571,6 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnGuardarModelo.show()
         self.ui.textDescribirModelo.show()
 
-
-
         
     def crearAjustarModelo(self):
         self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
@@ -643,6 +641,64 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnGuardarModelo.show()
         self.ui.textDescribirModelo.show()
 
+    def cargarModeloInicio(self):
+        self.cambiarPagina(2)
+        self.ui.btnCrearGrafica.hide()
+        self.cargarModelo()
+    
+    def cambiarPestGraf(self):
+        self.cambiarPagina(1)
+        self.ui.propiedadesModelo.hide()
+        self.ui.btnGuardarModelo.hide()
+        self.ui.textDescribirModelo.hide()
+        self.ui.btnCrearGrafica.show()
+        
+    def cargarModelo(self):
+        ruta, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar modelo",
+            "",
+            "Modelos (*.pkl)"
+        )
+
+        if not ruta:
+            return 
+
+        try:
+            with open(ruta, 'rb') as f:
+                datos = pk.load(f)
+
+            self.modelo = datos.get("modelo")
+            self.columnaEntrada = datos.get("columnaEntrada")
+            self.columnaSalida = datos.get("columnaSalida")
+
+            metricas = datos.get("metricas", {})
+            self.r2Train = metricas.get("r2Train")
+            self.r2Test = metricas.get("r2Test")
+            self.ecmTrain = metricas.get("ecmTrain")
+            self.ecmTest = metricas.get("ecmTest")
+
+            self.formula = datos.get("formula", "")
+
+            # Actualizar
+            self.ui.textDescribirModelo.setPlainText(datos.get("descripcion", ""))
+            self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
+            self.ui.labelFormula.setText(f"{self.formula}")
+            self.ui.propiedadesModelo.show()
+            self.ui.btnGuardarModelo.show()
+            self.ui.textDescribirModelo.show()
+            self.ui.btnCrearGrafica.hide()
+
+
+            # Mensaje de éxito
+            msj.crearInformacion(self, "Éxito", f"Modelo cargado correctamente:\n{ruta}")
+
+        except (pk.PickleError, EOFError):
+            msj.crearAdvertencia(self, "Error de lectura", "El archivo no es un modelo válido o está dañado.")
+        except FileNotFoundError:
+            msj.crearAdvertencia(self, "Error", "No se encontró el archivo especificado.")
+        except Exception as e:
+            msj.crearAdvertencia(self, "Error inesperado", f"Ocurrió un error: {e}")
 
 
 
