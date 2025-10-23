@@ -499,7 +499,7 @@ class MainWindowCtrl(QMainWindow):
 
 
     def guardarModelo(self, ruta,descr):
-        """Método usado para guardar las características del modelo que hayas creado, junto con una descripción, en un archivo de formato .plk"""
+        """Método usado para guardar el modelo, sus características y una descripción, en un archivo de formato .plk"""
         if ruta:
             parametros = {
                 "modelo": self.modelo,
@@ -509,10 +509,6 @@ class MainWindowCtrl(QMainWindow):
                 "r2Test": self.r2Test,
                 "ecmTrain": self.ecmTrain,
                 "ecmTest": self.ecmTest,
-                "xTrain": self.xTrain,
-                "yTrain": self.yTrain,
-                "xTest": self.xTest,
-                "yTest": self.yTest
             }
 
             # Agregar descripción desde el panel de texto
@@ -521,7 +517,7 @@ class MainWindowCtrl(QMainWindow):
             # Detectar parámetros faltantes
             faltantes = [nombre for nombre, valor in parametros.items() if valor is None]
             if faltantes:
-                msj.crearAdvertencia(self, "Error: faltan los siguientes parámetros:", f"{faltantes}")
+                msj.crearAdvertencia(self, "Error: faltan los siguientes parámetros de descripción:", f"{faltantes}")
                 return
 
             # Crear diccionario del modelo
@@ -700,10 +696,6 @@ class MainWindowCtrl(QMainWindow):
             self.r2Test = metricas.get("r2Test")
             self.ecmTrain = metricas.get("ecmTrain")
             self.ecmTest = metricas.get("ecmTest")
-            self.xTrain = datos.get("xTrain")
-            self.yTrain = datos.get("yTrain")
-            self.xTest = datos.get("xTest")
-            self.yTest = datos.get("yTest")
             self.formula = datos.get("formula", "")
 
             # Actualizar
@@ -715,7 +707,6 @@ class MainWindowCtrl(QMainWindow):
             self.ui.textDescribirModelo.show()
             self.ui.btnCrearGrafica.hide()
             self.limpiarGrafica()
-            self.plotGrafica()
 
 
             # Mensaje de éxito

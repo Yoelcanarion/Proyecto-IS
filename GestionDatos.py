@@ -15,7 +15,7 @@ def cargaColumnas(datos):
     except:
         raise "Ha habido algun error durante la extraccion de columnas"
     
-def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion, xTrain, yTrain, xTest, yTest):
+def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion):
     modeloGuardado = {
     "modelo": modelo,
     "descripcion": descripcion,
@@ -28,10 +28,6 @@ def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, e
         "ecmTest": ecmTest
     },
     "formula": f"y = {modelo.coef_[0]:.2f} * x + {modelo.intercept_:.2f}",
-    "xTrain": xTrain,
-    "yTrain": yTrain,
-    "xTest": xTest,
-    "yTest": yTest
     }
     return modeloGuardado
 
