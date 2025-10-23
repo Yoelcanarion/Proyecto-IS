@@ -25,6 +25,28 @@ class Mensajes:
         dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
         dlg.setIcon(QMessageBox.Icon.Warning)
         dlg.exec()
+    
+    def crearEncuestaAlUsuario(parent, titulo, mensaje, funcionContinuar):
+        """
+        Muestra un diálogo de advertencia.
+
+        Args:
+            parent (QWidget): El widget padre sobre el cual se mostrará el diálogo.
+            titulo (str): El título de la ventana de diálogo.
+            mensaje (str): El texto principal que se mostrará en el diálogo.
+            funcionContinuar (function): Función a ejecutar si el usuario elige continuar.
+        """
+        dlg = QMessageBox(parent)
+        dlg.setIcon(QMessageBox.Icon.Warning)
+        dlg.setWindowTitle(titulo)
+        dlg.setText(mensaje)
+        dlg.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.No)
+        respuesta = dlg.exec()
+        if respuesta == QMessageBox.StandardButton.Ok:
+            funcionContinuar()
+        else: 
+            return
+
 
     @staticmethod
     def crearInformacion(parent, titulo, mensaje):
