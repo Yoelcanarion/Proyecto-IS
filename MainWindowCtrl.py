@@ -19,9 +19,13 @@ from UtilidadesInterfaz import PandasModel as mp
 from UtilidadesInterfaz import Mensajes as msj
 from VentanaCargaCtrl import VentanaCargaCtrl
 from UtilidadesInterfaz import PandasModelConColor
+from PyQt6.QtCore import Qt
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg 
 from matplotlib.figure import Figure
+
+#Globales
+mensajeDefectoCmb = "--- Seleccione una columna ---"
 
 
 class MainWindowCtrl(QMainWindow):
@@ -45,6 +49,9 @@ class MainWindowCtrl(QMainWindow):
         # Configuración inicial
         self.resetearTodo()
         self.configurarInterfaz()
+
+        # Conectar botón de confirmación
+        self.ui.btnConfirmar.clicked.connect(self.confirmarSeleccion)
         # Añadir opciones al combo de preprocesamiento
         self.ui.cmbOpcionesPreprocesado.addItems([
             "Seleccione un método...",
@@ -71,7 +78,8 @@ class MainWindowCtrl(QMainWindow):
         self.dfProcesado = None
         self.dataFrameTest = None
         self.dataFrameTrain = None
-        
+        self.tamDfProc = None
+        self.tamDf = None
         # Columnas seleccionadas para entrada y salida
         self.columnaEntrada = None
         self.columnaSalida = None
@@ -100,12 +108,14 @@ class MainWindowCtrl(QMainWindow):
         """Configuración inicial de la interfaz"""
         # Ocultar botones inicialmente
         #el de las columnas
+        self.ui.conjuntoTabs.setCurrentIndex(0)
         self.ui.lineEditRutaArchivo.clear()
         self.ui.tableViewDataFrame.setModel(None)
         self.ui.textDescribirModelo.clear()
         self.ui.cmbOpcionesPreprocesado.setCurrentIndex(0)
-
-        self.ui.btnSeleccionarColumnas.hide()
+        self.ui.btnConfirmar.hide()
+        self.ui.cmbEntrada.hide()
+        self.ui.cmbSalida.hide()
         #el combo del preprocesado
         self.ui.cmbOpcionesPreprocesado.hide()
         #el del preprocesado
@@ -119,11 +129,12 @@ class MainWindowCtrl(QMainWindow):
         #El que aplica la division
         self.ui.botonDividirTest.hide()
         #El de pasar a la siguiente pestaña
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
         self.ui.textDescribirModelo.hide()
         self.ui.propiedadesModelo.hide()
         self.ui.barraProgreso.hide()
         self.ui.btnGuardarModelo.hide()
+        self.ui.btnCrearGrafica.hide()
+        self.ui.lblDatosDivision.hide()
 
        
 
@@ -134,16 +145,13 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)#PARA PASAR A LA DE REGRESIÓN LINEAL
 
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
-        self.ui.btnSeleccionarColumnas.clicked.connect(self.abrirVentanaSeleccionColumnas)
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.clicked.connect(self.cambiarPestGraf) #ESTA ES EL BOTON DE LA DE PREPROCESADO A LA DE DATASPLIT
         self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
-        self.ui.btnVolverPestanaPreprocesadoDesdeGrafica.clicked.connect(lambda: msj.crearEncuestaAlUsuario(self, "Pérdida de datos", \
-                                    "Volver a la pestaña de procesado conlleva la pérdida del modelo actual, ¿Está seguro de su decisión?", self.pipelineVolverAProcesado))# ESTA ES LA DE  LA GRAFICA
+        self.ui.sliderProporcionTest.valueChanged.connect(self.actualizarLblValSlider)
+        self.ui.numeroSliderTest.valueChanged.connect(self.actualizarPorcentajeSpin)
         #cargar modelo
         self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
-        #self.ui.textDescribirModelo.textChanged.connect()
         self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
 
@@ -173,12 +181,14 @@ class MainWindowCtrl(QMainWindow):
                 df = impd.cargarDatos(ruta)
                 self.df = df
                 self.cargarTabla(df)
+                self.tamDf = len(df)
                 # Mostrar botón de seleccionar columnas
-                self.ui.btnSeleccionarColumnas.show()
+                self.ui.btnConfirmar.show()
+                self.ui.cmbEntrada.show()
+                self.ui.cmbSalida.show()
                 #Para que en el caso de volver a meter un archivo no podamos preprocesarlo sin antes eleccionar las columnas
                 self.ui.cmbOpcionesPreprocesado.hide()
                 self.ui.botonAplicarPreprocesado.hide()
-                self.ui.btnSeleccionarColumnas.setText("Seleccionar Columnas")
             except ValueError as e:
                 msj.crearAdvertencia(self, "Error inesperado", 
                     "Se ha producido un error inesperado al cargar el archivo")
@@ -211,75 +221,42 @@ class MainWindowCtrl(QMainWindow):
             model = mp(df)
             self.ui.tableViewDataFrame.setModel(model)
             self.ui.tableViewDataFrame.resizeColumnsToContents()
+            self.columnas =[mensajeDefectoCmb]
+            self.columnas.extend(gd.cargaColumnas(df))
+            self.ui.cmbEntrada.clear()
+            self.ui.cmbSalida.clear()
+            self.ui.cmbEntrada.addItems(self.columnas)
+            self.ui.cmbSalida.addItems(self.columnas)
 
         except ValueError as e:
             msj.crearAdvertencia(self, "Error inesperado", 
                 "Se ha producido un error inesperado al crear la tabla")
-
-
-    def abrirVentanaSeleccionColumnas(self):
-        """
-        Abre la ventana de selección de columnas para entrada y salida.
-        Al confirmar, marca las columnas seleccionadas en verde/rojo y muestra opciones de preprocesado.
-        """
+    
+    def confirmarSeleccion(self):
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "Primero debe cargar un archivo")
             return
-        #Me aeguro de que no aparezcan botones posteriores a seleccionar columnas
-        self.ui.cmbOpcionesPreprocesado.hide()
-        self.ui.botonAplicarPreprocesado.hide()
-        self.ui.botonDividirTest.hide()
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
-        self.ui.numeroSliderTest.hide()
-        self.ui.sliderProporcionTest.hide()
-        self.ui.lblDivision.hide()
         
-        # Crear y mostrar ventana de selección de columnas
-        ventanaColumnas = VentanaCargaCtrl(self.df)
-
-        
-        # Modificar el método confirmarSeleccion para que cierre y guarde las columnas
-        def confirmarYCerrar():
-            entrada = ventanaColumnas.ui.cmbEntrada.currentText()
-            salida = ventanaColumnas.ui.cmbSalida.currentText()
+        entrada = self.ui.cmbEntrada.currentText()
+        salida = self.ui.cmbSalida.currentText()
+        if (entrada != mensajeDefectoCmb and salida != mensajeDefectoCmb):
+            msj.crearInformacion(self,"Datos Seleccionados",
+                f"Entrada: {entrada}\nSalida: {salida}")
             
-            from VentanaCargaCtrl import mensajeDefectoCmb
-            
-            if (entrada != mensajeDefectoCmb and salida != mensajeDefectoCmb):
-                # Verificar que las columnas sean numéricas
-                if not pd.api.types.is_numeric_dtype(self.df[entrada]) or not pd.api.types.is_numeric_dtype(self.df[salida]):
-                    msj.crearAdvertencia(ventanaColumnas, "Columnas no válidas", 
-                        "Las columnas seleccionadas deben contener solo números. Por favor, seleccione columnas numéricas.")
-                    return  # No cerrar la ventana, volver atrás
-                self.columnaEntrada = entrada
-                self.columnaSalida = salida
-                
-                msj.crearInformacion(self, "Columnas Seleccionadas",
-                    f"Entrada: {entrada}\nSalida: {salida}")
-                
-                # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
-                self.marcarColumnasSeleccionadas(self.df)
-                
-                # Mostrar combo de preprocesado
-                ventanaColumnas.close()
-                #Ponemos que se vean despues de seleccionar
-                self.ui.botonDividirTest.hide()
-                self.ui.btnPasarPestanaGraficaDesdePreprocesado.hide()
-                self.ui.numeroSliderTest.hide()
-                self.ui.sliderProporcionTest.hide()
-                self.ui.lblDivision.hide()
-                self.ui.cmbOpcionesPreprocesado.show()
-                self.ui.botonAplicarPreprocesado.show()
-
-            else:
-                msj.crearAdvertencia(ventanaColumnas, "Advertencia",
-                    "Debe seleccionar una columna para la entrada y la salida.")
-        
-        # Reemplazar la conexión del botón confirmar
-        ventanaColumnas.ui.btnConfirmar.clicked.disconnect()
-        ventanaColumnas.ui.btnConfirmar.clicked.connect(confirmarYCerrar)
-        
-        ventanaColumnas.show()
+            # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
+            self.columnaEntrada =  entrada
+            self.columnaSalida = salida
+            self.marcarColumnasSeleccionadas(self.df)
+            #Ponemos que se vean despues de seleccionar
+            self.ui.botonDividirTest.hide()
+            self.ui.numeroSliderTest.hide()
+            self.ui.sliderProporcionTest.hide()
+            self.ui.lblDivision.hide()
+            self.ui.cmbOpcionesPreprocesado.show()
+            self.ui.botonAplicarPreprocesado.show()
+        else:
+             msj.crearAdvertencia(self,"Advertencia",
+                "Debe seleccionar una columna para la entrada y la salida.")
     
 
     def marcarColumnasSeleccionadas(self,dfEntr):
@@ -329,6 +306,9 @@ class MainWindowCtrl(QMainWindow):
 
     def aplicarPreprocesado(self):
         """Aplica la operación de preprocesamiento seleccionada"""
+        if self.ui.cmbOpcionesPreprocesado.currentText() == "Seleccione un método...":
+            return
+        
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "No hay datos cargados")
             return
@@ -351,7 +331,7 @@ class MainWindowCtrl(QMainWindow):
                                         inplace=True, ignore_index=True)
                     
                     msj.crearInformacion(self, "Preprocesado Aplicado",
-                        f"Filas eliminadas: {len(self.df) - len(self.dfProcesado)}\n"
+                        f"Filas eliminadas: {self.tamDf - len(self.dfProcesado)}\n"
                         f"NaN eliminados: {nanAntes}")
                 
                 case "Rellenar con la media (Numpy)":
@@ -383,10 +363,10 @@ class MainWindowCtrl(QMainWindow):
             
             self.cargarTabla(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
-            
+            self.tamDfProc = len(self.dfProcesado)
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
-            mensaje += f"Filas: {len(self.df)} → {len(self.dfProcesado)}\n"
+            mensaje += f"Filas: {self.tamDf} → {self.tamDfProc}\n"
             mensaje += f"NaN en columnas seleccionadas: {self.df[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()} → {self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()}"
             msj.crearInformacion(self, "Éxito", mensaje)
             
@@ -397,6 +377,8 @@ class MainWindowCtrl(QMainWindow):
                 self.ui.lblDivision.show()
                 self.ui.numeroSliderTest.show()
                 self.ui.sliderProporcionTest.show()
+                self.ui.lblDatosDivision.show()
+
             else:
                 msj.crearAdvertencia(self, "NaN restantes", 
                     "Aún quedan valores NaN en las columnas seleccionadas.\n"
@@ -407,12 +389,25 @@ class MainWindowCtrl(QMainWindow):
 
 
     # ==================== MÉTODOS DEL DATASPLIT ====================
-
+    def actualizarLblValSlider(self):
+        value = self.ui.sliderProporcionTest.value()
+        self.ui.numeroSliderTest.setValue(value)
+        longitud = self.tamDfProc
+        test = float(value)
+        train = 100 - test
+        self.ui.lblDatosDivision.setText(f"Test: {test}% --- Filas: {round(longitud*test/100)}\nTrain: {train}% --- Filas: {round(longitud*train/100)}")
+        
     def _actualizarPorcentajeTest(self):
         """Actualiza la proporción de test según el valor del slider"""
         value = self.ui.sliderProporcionTest.value()
         self.proporcionDeTest = float(value) / 100
-
+    
+    def actualizarPorcentajeSpin(self):
+        """Actualiza la proporción de test del slider el valor del spin"""
+        value = self.ui.numeroSliderTest.value()
+        self.ui.sliderProporcionTest.setValue(value)
+        self.proporcionDeTest = float(value) / 100
+        
 
     def _ejecutarDatasplit(self, tamañoTest):  
         """Realiza el datasplit en dataFrameTrain y dataFrameTest"""
@@ -435,23 +430,17 @@ class MainWindowCtrl(QMainWindow):
         if self.dataFrameTrain is None or self.dataFrameTest is None:
             return
         
-        # Usar dfProcesado si existe, sino usar df
-        df_base = self.dfProcesado if self.dfProcesado is not None else self.df
-        
         # Líneas y porcentaje de líneas del entrenamiento
-        porcentajeTrain = (len(self.dataFrameTrain) / len(df_base)) * 100
+        porcentajeTrain = (len(self.dataFrameTrain) / self.tamDfProc) * 100
         mensajeTrain = f"{len(self.dataFrameTrain)} Líneas de Entrenamiento --- {porcentajeTrain:.2f}% de los datos"
         
         # Líneas y porcentaje de líneas del test
-        porcentajeTest = (len(self.dataFrameTest) / len(df_base)) * 100
+        porcentajeTest = 100 - porcentajeTrain
         mensajeTest = f"{len(self.dataFrameTest)} Líneas de Test --- {porcentajeTest:.2f}% de los datos"
         
         # Mostrar en un mensaje informativo
         msj.crearInformacion(self, "División Completada", 
             f"{mensajeTrain}\n{mensajeTest}")
-        
-        # Mostrar botón para pasar a siguiente pestaña
-        self.ui.btnPasarPestanaGraficaDesdePreprocesado.show()
 
 
     def procesoDataSplit(self):
@@ -465,9 +454,9 @@ class MainWindowCtrl(QMainWindow):
         # Mostrar los resultados si el split fue exitoso
         if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
+            self.ui.btnCrearGrafica.show()
 
 
-        #AÑADIDO
     def cambiarPagina(self, nPaginasAMover):
         """Cambia de página en el QStackedWidget según el número de páginas a mover""" #puede ser negativo o positivo
         indiceActual = self.ui.stackedWidget.currentIndex()
@@ -651,25 +640,12 @@ class MainWindowCtrl(QMainWindow):
 
 
 
-    def pipelineVolverAProcesado(self):
-        """Pipeline usado cuando se quiere volver al procesado, por lo que elimina todas las características del modelo actual y 'reinicia' el proceso"""
-        self.configurarInterfaz()
-        self.resetearTodo()
-        self.cambiarPagina(-1)
-
-
     def cargarModeloInicio(self):
         """Opción si quieres ir desde el principio a cargar una gráfica"""
-        self.cambiarPagina(2)
+        self.cambiarPagina(1)
+        self.ui.conjuntoTabs.setCurrentIndex(1)
         self.ui.btnCrearGrafica.hide()
         self.cargarModelo()
-    
-    def cambiarPestGraf(self):
-        self.cambiarPagina(1)
-        self.ui.propiedadesModelo.hide()
-        self.ui.btnGuardarModelo.hide()
-        self.ui.textDescribirModelo.hide()
-        self.ui.btnCrearGrafica.show()
         
     def cargarModelo(self):
         """Método usado para cargar modelos previamente guardados en formato .plk"""
@@ -698,7 +674,7 @@ class MainWindowCtrl(QMainWindow):
             self.ecmTest = metricas.get("ecmTest")
             self.formula = datos.get("formula", "")
 
-            # Actualizar
+            # Actualizar tab2
             self.ui.textDescribirModelo.setPlainText(datos.get("descripcion", ""))
             self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
             self.ui.labelFormula.setText(f"{self.formula}")
@@ -707,8 +683,17 @@ class MainWindowCtrl(QMainWindow):
             self.ui.textDescribirModelo.show()
             self.ui.btnCrearGrafica.hide()
             self.limpiarGrafica()
+            
+            #Actualizar tab1
+            self.ui.botonDividirTest.hide()
+            self.ui.sliderProporcionTest.hide()
+            self.ui.lblDivision.hide()
+            self.ui.lblDatosDivision.hide()
+            self.ui.numeroSliderTest.hide()
+            self.ui.cmbOpcionesPreprocesado.hide()
+            self.ui.botonAplicarPreprocesado.hide()
 
-
+            self.ui.lineRutaCargar.setText(ruta)
             # Mensaje de éxito
             msj.crearInformacion(self, "Éxito", f"Modelo cargado correctamente:\n{ruta}")
 

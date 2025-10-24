@@ -3,7 +3,7 @@ import pickle as pk
 #LEED LOS COMENTARIOS
 #En este archivo deberia ir todo lo relacionado con carga actualizacion y consulta a datos(CRUD)
 
-def cargaColumnas(datos):
+def cargaColumnasTotal(datos):
     """
      Extrae las columnas de un dataframe.
      
@@ -12,8 +12,42 @@ def cargaColumnas(datos):
         """
     try:
         return datos.columns.tolist()
-    except:
-        raise "Ha habido algun error durante la extraccion de columnas"
+    except Exception as e:
+        raise Exception(f"Ha habido algún error durante la extracción de columnas: {e}")
+
+
+def cargaColumnasNumericas(datos):
+    """
+    Extrae columnas numéricas. Si hay columnas con números en formato string,
+    intenta convertirlas a número antes de descartarlas.
+    
+    Modifica el DataFrame convirtiendo estas columnas a tipo numérico.
+    """
+    columnas_validas = []
+
+    for col in datos.columns:
+        serie = datos[col]
+
+        if pd.api.types.is_numeric_dtype(serie):
+            columnas_validas.append(col)
+        else:
+            # Intentar convertir la columna completa
+            try:
+                datos[col] = pd.to_numeric(serie, errors='raise')
+                columnas_validas.append(col)
+            except Exception:
+                # No se puede convertir, no es numérica
+                pass
+
+    return columnas_validas
+
+
+def cargaColumnas(datos, solo_numericas=True):
+    if solo_numericas:
+        return cargaColumnasNumericas(datos)
+    else:
+        return cargaColumnasTotal(datos)
+
     
 def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion):
     modeloGuardado = {
