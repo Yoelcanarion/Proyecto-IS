@@ -83,6 +83,9 @@ class MainWindowCtrl(QMainWindow):
         # Columnas seleccionadas para entrada y salida
         self.columnaEntrada = None
         self.columnaSalida = None
+
+        self.columnaEntradaGraficada = None
+        self.columnaSalidaGraficada = None
         
         #Modelo
         self.modelo=None
@@ -145,14 +148,16 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)#PARA PASAR A LA DE REGRESIÓN LINEAL
 
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
-        self.ui.botonDividirTest.clicked.connect(self.procesoDataSplit)
+        self.ui.botonDividirTest.clicked.connect(self.pipelineModelo)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
         self.ui.sliderProporcionTest.valueChanged.connect(self.actualizarLblValSlider)
         self.ui.numeroSliderTest.valueChanged.connect(self.actualizarPorcentajeSpin)
         #cargar modelo
         self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
-        self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
+
+        #actualizar la status Bar
+        self.ui.conjuntoTabs.currentChanged.connect(self.actualizarColumnasSeleccionadas)
 
 
     def abrirExplorador(self):
@@ -270,6 +275,11 @@ class MainWindowCtrl(QMainWindow):
         #para que se muestre abajo las seleccionadas
         self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")
 
+    def actualizarColumnasSeleccionadas(self):
+        if self.ui.conjuntoTabs.currentIndex() == 0 and self.columnaEntrada is not None and self.columnaSalida is not None:
+            self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")            
+        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
+            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
 
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
 
@@ -454,7 +464,6 @@ class MainWindowCtrl(QMainWindow):
         # Mostrar los resultados si el split fue exitoso
         if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
-            self.ui.btnCrearGrafica.show()
 
 
     def cambiarPagina(self, nPaginasAMover):
@@ -492,8 +501,8 @@ class MainWindowCtrl(QMainWindow):
         if ruta:
             parametros = {
                 "modelo": self.modelo,
-                "columnaEntrada": self.columnaEntrada,
-                "columnaSalida": self.columnaSalida,
+                "columnaEntrada": self.columnaEntradaGraficada,
+                "columnaSalida": self.columnaSalidaGraficada,
                 "r2Train": self.r2Train,
                 "r2Test": self.r2Test,
                 "ecmTrain": self.ecmTrain,
@@ -531,13 +540,13 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error de datos", "No hay datos de entrenamiento o test disponibles")
             return
         
-        if self.columnaEntrada is None or self.columnaSalida is None:
+        if self.columnaEntradaGraficada is None or self.columnaSalidaGraficada is None:
             msj.crearAdvertencia(self, "Error de columnas", "No se han seleccionado las columnas de entrada y salida")
             return
-        self.xTrain = self.dataFrameTrain[[self.columnaEntrada]]
-        self.yTrain = self.dataFrameTrain[self.columnaSalida]
-        self.xTest = self.dataFrameTest[[self.columnaEntrada]]
-        self.yTest = self.dataFrameTest[self.columnaSalida]
+        self.xTrain = self.dataFrameTrain[[self.columnaEntradaGraficada]]
+        self.yTrain = self.dataFrameTrain[self.columnaSalidaGraficada]
+        self.xTest = self.dataFrameTest[[self.columnaEntradaGraficada]]
+        self.yTest = self.dataFrameTest[self.columnaSalidaGraficada]
 
         self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
 
@@ -577,9 +586,9 @@ class MainWindowCtrl(QMainWindow):
         self.ui.barraProgreso.setValue(40)
 
         # Datos
-        puntosXTrain = self.xTrain[self.columnaEntrada]
+        puntosXTrain = self.xTrain[self.columnaEntradaGraficada]
         puntosYTrain = self.yTrain
-        puntosXTest = self.xTest[self.columnaEntrada]
+        puntosXTest = self.xTest[self.columnaEntradaGraficada]
         puntosYTest = self.yTest
 
         sns.scatterplot(x=puntosXTrain, y=puntosYTrain, color='blue', label='Train', ax=eje)
@@ -592,8 +601,8 @@ class MainWindowCtrl(QMainWindow):
 
         #Indicaciones
         eje.set_title("Regresión Lineal", fontsize=14)
-        eje.set_xlabel(self.columnaEntrada)
-        eje.set_ylabel(self.columnaSalida)
+        eje.set_xlabel(self.columnaEntradaGraficada)
+        eje.set_ylabel(self.columnaSalidaGraficada)
         eje.legend()
         sns.despine(fig)
 
@@ -628,6 +637,13 @@ class MainWindowCtrl(QMainWindow):
 
     def pipelineModelo(self):
         """Pipeline que sirve para el proceso completo de representar la gráfica tras su procesado"""
+        self.procesoDataSplit()
+        self.ui.conjuntoTabs.setCurrentIndex(1)
+        self.columnaEntradaGraficada = self.columnaEntrada
+        self.columnaSalidaGraficada = self.columnaSalida
+        self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
+        if self.ui.placeholderGrafica.layout() is not None:
+            self.limpiarGrafica()
         self.crearAjustarModelo() 
         self.plotGrafica()
         # Solo actualizar UI si todo salió bien
@@ -637,7 +653,6 @@ class MainWindowCtrl(QMainWindow):
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
-
 
 
     def cargarModeloInicio(self):
@@ -664,8 +679,8 @@ class MainWindowCtrl(QMainWindow):
                 datos = pk.load(f)
 
             self.modelo = datos.get("modelo")
-            self.columnaEntrada = datos.get("columnaEntrada")
-            self.columnaSalida = datos.get("columnaSalida")
+            self.columnaEntradaGraficada = datos.get("columnaEntrada")
+            self.columnaSalidaGraficada = datos.get("columnaSalida")
 
             metricas = datos.get("metricas", {})
             self.r2Train = metricas.get("r2Train")
@@ -683,6 +698,7 @@ class MainWindowCtrl(QMainWindow):
             self.ui.textDescribirModelo.show()
             self.ui.btnCrearGrafica.hide()
             self.limpiarGrafica()
+            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
             
             #Actualizar tab1
             self.ui.botonDividirTest.hide()
