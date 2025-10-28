@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget, QVBoxLayout
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, QPropertyAnimation, QEasingCurve
+from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from MainWindowUI import Ui_MainWindow
 import ImportacionDatos as impd
 import GestionDatos as gd
@@ -20,7 +21,7 @@ from UtilidadesInterfaz import Mensajes as msj
 from VentanaCargaCtrl import VentanaCargaCtrl
 from UtilidadesInterfaz import PandasModelConColor
 from PyQt6.QtCore import Qt
-
+from transiciones import TransicionPaginas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg 
 from matplotlib.figure import Figure
 
@@ -44,8 +45,8 @@ class MainWindowCtrl(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.ui.stackedWidget.setCurrentIndex(0)        
-
+        # Inicializar sistema de transiciones
+        self.transicion = TransicionPaginas(self)
         # Configuración inicial
         self.resetearTodo()
         self.configurarInterfaz()
@@ -103,7 +104,7 @@ class MainWindowCtrl(QMainWindow):
         self.xTest=None
         self.yTest=None
 
-            # Limpiar gráfica
+        # Limpiar gráfica
         self.limpiarGrafica()
 
 
@@ -139,13 +140,11 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnCrearGrafica.hide()
         self.ui.lblDatosDivision.hide()
 
-       
-
     def conectarSenalesPreproceso(self):
         """Conectar señales de los botones y widgets"""
-        #PAGINA INICIAL
-        self.ui.btnInicialCrearModelo.clicked.connect((lambda: self.cambiarPagina(1)))#PARA PASAR A LA DE PREPROCESADO
-        self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)#PARA PASAR A LA DE REGRESIÓN LINEAL
+        #PAGINA INICIAL - CON ANIMACIONES
+        self.ui.btnInicialCrearModelo.clicked.connect(self.irACrearModelo)
+        self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)
 
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.botonDividirTest.clicked.connect(self.pipelineModelo)
@@ -155,10 +154,18 @@ class MainWindowCtrl(QMainWindow):
         #cargar modelo
         self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
+        self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
-        #actualizar la status Bar
-        self.ui.conjuntoTabs.currentChanged.connect(self.actualizarColumnasSeleccionadas)
+       #actualizar status bar
+        self.ui.conjuntoTabs.currentChanged.connect(self.actualizarColumnasSeleccionadas) 
+       
 
+    def irACrearModelo(self):
+        """Ir a la pestaña de preprocesado con animación"""
+        self.transicion.cambiarPaginaConAnimacion(1)
+
+    
+       
 
     def abrirExplorador(self):
         """
@@ -276,10 +283,37 @@ class MainWindowCtrl(QMainWindow):
         self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")
 
     def actualizarColumnasSeleccionadas(self):
-        if self.ui.conjuntoTabs.currentIndex() == 0 and self.columnaEntrada is not None and self.columnaSalida is not None:
+        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntrada is not None and self.columnaSalida is not None:
             self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")            
-        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
+        if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
             self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
+
+    # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
+
+    # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
+    #MODIFICADO PARA METER MULTIVARIABLES
+    def marcarColumnasSeleccionadas(self, dfEntr):
+        if self.df is None or self.columnaEntrada is None or self.columnaSalida is None:
+            return
+        
+        # Convertir columnaEntrada a lista si es string
+        if isinstance(self.columnaEntrada, str):
+            columnas_entrada = [self.columnaEntrada]
+        else:
+            columnas_entrada = self.columnaEntrada
+        
+        model = PandasModelConColor(dfEntr, columna_verde=columnas_entrada, 
+                                    columna_roja=self.columnaSalida, tachar_nan=True)
+        self.ui.tableViewDataFrame.setModel(model)
+        self.ui.tableViewDataFrame.resizeColumnsToContents()
+        
+        # Mostrar todas las columnas de entrada
+        if isinstance(columnas_entrada, list):
+            entradas_str = ", ".join(columnas_entrada)
+        else:
+            entradas_str = columnas_entrada
+        self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalida}")
+
 
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
 
@@ -295,8 +329,14 @@ class MainWindowCtrl(QMainWindow):
         Returns:
             DataFrame con valores NaN rellenados en las columnas seleccionadas
         """
-        # Solo procesar las columnas de entrada y salida
-        columnas_a_procesar = [self.columnaEntrada, self.columnaSalida]
+        # Convertir columnaEntrada a lista si es string 
+        if isinstance(self.columnaEntrada, str):
+            columnas_entrada = [self.columnaEntrada]
+        else:
+            columnas_entrada = self.columnaEntrada
+        
+        # Combinar columnas de entrada y salida
+        columnas_a_procesar = columnas_entrada + [self.columnaSalida]
         
         for col in columnas_a_procesar:
             # Verificar que la columna existe y es numérica
@@ -329,15 +369,22 @@ class MainWindowCtrl(QMainWindow):
                 "Debe seleccionar las columnas de entrada y salida primero")
             return
         
+        # Convertir columnaEntrada a lista si es string (compatibilidad) -> si es simple-> Lo mete en una lsita, si ya es lista, la deja
+        if isinstance(self.columnaEntrada, str):
+            columnas_entrada = [self.columnaEntrada]
+        else:
+            columnas_entrada = self.columnaEntrada
+        columnas_seleccionadas = columnas_entrada + [self.columnaSalida]
+        
         self.dfProcesado = self.df.copy(deep=True)
         opcion = self.ui.cmbOpcionesPreprocesado.currentText()
 
         try:
             match opcion:
                 case "Eliminar filas con NaN":
-                    nanAntes = self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()
+                    nanAntes = self.dfProcesado[columnas_seleccionadas].isna().sum().sum()
                     # Eliminar filas que tengan NaN en las columnas seleccionadas
-                    self.dfProcesado.dropna(subset=[self.columnaEntrada, self.columnaSalida], 
+                    self.dfProcesado.dropna(subset=columnas_seleccionadas, 
                                         inplace=True, ignore_index=True)
                     
                     msj.crearInformacion(self, "Preprocesado Aplicado",
@@ -374,21 +421,21 @@ class MainWindowCtrl(QMainWindow):
             self.cargarTabla(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
             self.tamDfProc = len(self.dfProcesado)
+            
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
             mensaje += f"Filas: {self.tamDf} → {self.tamDfProc}\n"
-            mensaje += f"NaN en columnas seleccionadas: {self.df[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()} → {self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isna().sum().sum()}"
+            mensaje += f"NaN en columnas seleccionadas: {self.df[columnas_seleccionadas].isna().sum().sum()} → {self.dfProcesado[columnas_seleccionadas].isna().sum().sum()}"
             msj.crearInformacion(self, "Éxito", mensaje)
             
             # Verificar si hay NaN en las columnas de entrada y salida
-            if not self.dfProcesado[[self.columnaEntrada, self.columnaSalida]].isnull().values.any():
+            if not self.dfProcesado[columnas_seleccionadas].isnull().values.any():
                 # Mostrar botón de dividir datos
                 self.ui.botonDividirTest.show()
                 self.ui.lblDivision.show()
                 self.ui.numeroSliderTest.show()
                 self.ui.sliderProporcionTest.show()
                 self.ui.lblDatosDivision.show()
-
             else:
                 msj.crearAdvertencia(self, "NaN restantes", 
                     "Aún quedan valores NaN en las columnas seleccionadas.\n"
@@ -466,12 +513,6 @@ class MainWindowCtrl(QMainWindow):
             self._mostrarResultadosSplit()
 
 
-    def cambiarPagina(self, nPaginasAMover):
-        """Cambia de página en el QStackedWidget según el número de páginas a mover""" #puede ser negativo o positivo
-        indiceActual = self.ui.stackedWidget.currentIndex()
-        nuevoIndice = indiceActual + nPaginasAMover
-        if 0 <= nuevoIndice < self.ui.stackedWidget.count():
-            self.ui.stackedWidget.setCurrentIndex(nuevoIndice)
 
 
     #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
@@ -638,7 +679,7 @@ class MainWindowCtrl(QMainWindow):
     def pipelineModelo(self):
         """Pipeline que sirve para el proceso completo de representar la gráfica tras su procesado"""
         self.procesoDataSplit()
-        self.ui.conjuntoTabs.setCurrentIndex(1)
+        self.ui.conjuntoTabs.setCurrentIndex(2)
         self.columnaEntradaGraficada = self.columnaEntrada
         self.columnaSalidaGraficada = self.columnaSalida
         self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
@@ -657,10 +698,11 @@ class MainWindowCtrl(QMainWindow):
 
     def cargarModeloInicio(self):
         """Opción si quieres ir desde el principio a cargar una gráfica"""
-        self.cambiarPagina(1)
-        self.ui.conjuntoTabs.setCurrentIndex(1)
+        self.transicion.cambiarPaginaConAnimacion(2)
+        self.ui.btnCrearGrafica.hide()
         self.ui.btnCrearGrafica.hide()
         self.cargarModelo()
+        
         
     def cargarModelo(self):
         """Método usado para cargar modelos previamente guardados en formato .plk"""

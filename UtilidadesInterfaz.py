@@ -101,7 +101,12 @@ class PandasModelConColor(QAbstractTableModel):
     def __init__(self, df, columna_verde=None, columna_roja=None, tachar_nan=False):
         super().__init__()
         self.df = df
-        self.columna_verde = columna_verde
+        # Convertir columna_verde a lista si es string
+        if isinstance(columna_verde, str):
+            self.columna_verde = [columna_verde]
+        else:
+            self.columna_verde = columna_verde if columna_verde is not None else []
+        
         self.columna_roja = columna_roja
         self.tachar_nan = tachar_nan
 
@@ -124,7 +129,7 @@ class PandasModelConColor(QAbstractTableModel):
         # Color de fondo para las columnas seleccionadas
         elif role == Qt.ItemDataRole.BackgroundRole:
             col_name = self.df.columns[index.column()]
-            if col_name == self.columna_verde:
+            if col_name in self.columna_verde:
                 return QBrush(QColor(144, 238, 144))  # Verde claro
             elif col_name == self.columna_roja:
                 return QBrush(QColor(255, 182, 193))  # Rojo claro
