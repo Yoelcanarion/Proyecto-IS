@@ -104,6 +104,8 @@ class MainWindowCtrl(QMainWindow):
         self.xTest=None
         self.yTest=None
 
+        #Datos de predicción
+        self.datosEntrada = []
         # Limpiar gráfica
         self.limpiarGrafica()
 
@@ -137,8 +139,13 @@ class MainWindowCtrl(QMainWindow):
         self.ui.propiedadesModelo.hide()
         self.ui.barraProgreso.hide()
         self.ui.btnGuardarModelo.hide()
-        self.ui.btnCrearGrafica.hide()
         self.ui.lblDatosDivision.hide()
+        #Widgets de predicción
+        self.ui.btnAplicarPrediccion.hide()
+        self.ui.labelEntradaActual.hide()
+        self.ui.labelEntradaActual.hide()
+        self.ui.labelPrediccion.hide()
+
 
     def conectarSenalesPreproceso(self):
         """Conectar señales de los botones y widgets"""
@@ -154,11 +161,13 @@ class MainWindowCtrl(QMainWindow):
         #cargar modelo
         self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
-        self.ui.btnCrearGrafica.clicked.connect(self.pipelineModelo)
 
        #actualizar status bar
-        self.ui.conjuntoTabs.currentChanged.connect(self.actualizarColumnasSeleccionadas) 
-       
+        self.ui.conjuntoTabs.currentChanged.connect(self.actualizarColumnasSeleccionadas)
+
+        #Poner valores de predicción
+        self.ui.btnAplicarPrediccion.clicked.connect(self.pipelinePrediccion)
+
 
     def irACrearModelo(self):
         """Ir a la pestaña de preprocesado con animación"""
@@ -271,26 +280,6 @@ class MainWindowCtrl(QMainWindow):
                 "Debe seleccionar una columna para la entrada y la salida.")
     
 
-    def marcarColumnasSeleccionadas(self,dfEntr):
-        if self.df is None or self.columnaEntrada is None or self.columnaSalida is None:
-            return
-        
-        model = PandasModelConColor(dfEntr, columna_verde=self.columnaEntrada, 
-                                    columna_roja=self.columnaSalida, tachar_nan=True)
-        self.ui.tableViewDataFrame.setModel(model)
-        self.ui.tableViewDataFrame.resizeColumnsToContents()
-        #para que se muestre abajo las seleccionadas
-        self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")
-
-    def actualizarColumnasSeleccionadas(self):
-        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntrada is not None and self.columnaSalida is not None:
-            self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")            
-        if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
-            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
-
-    # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
-
-    # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
     #MODIFICADO PARA METER MULTIVARIABLES
     def marcarColumnasSeleccionadas(self, dfEntr):
         if self.df is None or self.columnaEntrada is None or self.columnaSalida is None:
@@ -313,6 +302,13 @@ class MainWindowCtrl(QMainWindow):
         else:
             entradas_str = columnas_entrada
         self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalida}")
+
+
+    def actualizarColumnasSeleccionadas(self):
+        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntrada is not None and self.columnaSalida is not None:
+            self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")            
+        if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
+            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
 
 
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
@@ -690,17 +686,19 @@ class MainWindowCtrl(QMainWindow):
         # Solo actualizar UI si todo salió bien
         if self.r2Train is not None and self.r2Test is not None:
             self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
-            self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_} + {self.modelo.coef_}*x")
+            self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_:.4f} + {self.modelo.coef_[0]:.4f}*x")
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
+            self.ui.btnAplicarPrediccion.show()
+            self.ui.labelEntradaActual.setText(self.columnaEntradaGraficada)
+            self.ui.labelEntradaActual.show()
+
 
 
     def cargarModeloInicio(self):
         """Opción si quieres ir desde el principio a cargar una gráfica"""
         self.transicion.cambiarPaginaConAnimacion(2)
-        self.ui.btnCrearGrafica.hide()
-        self.ui.btnCrearGrafica.hide()
         self.cargarModelo()
         
         
@@ -738,7 +736,11 @@ class MainWindowCtrl(QMainWindow):
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
-            self.ui.btnCrearGrafica.hide()
+            self.ui.labelEntradaActual.setText(self.columnaEntradaGraficada)
+            self.ui.btnAplicarPrediccion.show()
+            self.ui.labelEntradaActual.show()
+            self.ui.spinBoxEntrada.show()
+            self.ui.labelPrediccion.hide()
             self.limpiarGrafica()
             self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
             
@@ -761,6 +763,120 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", "No se encontró el archivo especificado.")
         except Exception as e:
             msj.crearAdvertencia(self, "Error inesperado", f"Ocurrió un error: {e}")
+
+#=====================MÉTODOS DE PREDICCIÓN========================#
+
+
+#El usuario mete los datos en el orden original de las columnas de entrada
+#Le da al botón de predecir y se llama a pipelinePrediccion()
+#Entran unos datosEntrada en orden con este formato [[120, 3, 5]] (por ejemplo), se crea la predicción de Y y se pone en un label
+#Con los datosEntrada se crea una gráfica mediante plotPrediccion
+#Según si es creado o cargado, añade la predicción a lo ya graficado o crea la gráfica de 0 
+#Ya se añadirá una versión para rlm
+    def actualizarDatosPrediccion(self):
+        nuevaEntrada = self.ui.spinBoxEntrada.value()
+        self.datosEntrada.append(nuevaEntrada)
+        self.ui.spinBoxEntrada.setValue(0)
+
+    def pipelinePrediccion(self):
+        # Para predicción simple (1 columna de entrada)
+        # self.columnaEntradaGraficada debe ser un string
+        if not isinstance(self.columnaEntradaGraficada, str):
+            msj.crearAdvertencia(self, "Error de configuración", 
+                "La predicción gráfica solo funciona con una columna de entrada")
+            return
+        
+        # Solo necesitamos un valor de entrada para predicción simple
+        if len(self.datosEntrada) < 1:
+            self.actualizarDatosPrediccion()
+            if len(self.datosEntrada) < 1:
+                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnaEntradaGraficada}")
+                return
+        
+        if self.modelo is None:
+            msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para predicción")
+            return
+        
+        # Para regresión simple: predict espera [[valor]]
+        self.prediccion = self.modelo.predict([[self.datosEntrada[0]]])
+        self.ui.labelPrediccion.setText(f"Valor de {self.columnaSalidaGraficada} predicho: {self.prediccion[0]:.4f}")
+        self.ui.labelPrediccion.show()
+        self.plotPrediccion()
+        
+        # Limpiar datos de entrada para la próxima predicción
+        self.datosEntrada.clear()
+
+    #Hasta aquí todo bien
+
+    def plotPrediccion(self):
+        if self.ui.placeholderGrafica.layout() is None: #Crear la gráfica de 0
+            #Esta es la versión simple, hay que añadir la múltiple más tarde
+                self.ui.barraProgreso.setVisible(True)
+                self.ui.barraProgreso.setValue(0)
+                QCoreApplication.processEvents()
+
+                layout = QVBoxLayout(self.ui.placeholderGrafica)
+
+                # Crear figura con estilo Seaborn
+                sns.set(style="whitegrid", context="talk")
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasQTAgg(fig)
+                eje = fig.add_subplot(111)
+                self.ui.barraProgreso.setValue(40)
+
+                # Graficar solo el punto de predicción inicialmente
+                sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
+                            label='Predicción', edgecolor='black', linewidth=1.5, 
+                            ax=eje, zorder=5, legend=True)
+
+                #Crear la recta de regresión
+                xMin, xMax = eje.get_xlim()
+                xLine = np.linspace(xMin, xMax, 100).reshape(-1, 1)
+                yLine = self.modelo.intercept_ + self.modelo.coef_[0] * xLine            
+                eje.plot(xLine, yLine, color="red", linewidth=2, label="Recta de regresión")
+
+                # Indicaciones
+                eje.set_title("Regresión Lineal", fontsize=14)
+                eje.set_xlabel(self.columnaEntradaGraficada)
+                eje.set_ylabel(self.columnaSalidaGraficada)
+                eje.legend()
+                sns.despine(fig)
+
+                # Añadir al layout
+                layout.addWidget(canvas)
+                self.ui.placeholderGrafica.setLayout(layout)
+                self.ui.barraProgreso.setValue(80)
+
+                # Refrescar
+                canvas.draw()
+                self.ui.barraProgreso.setValue(100)
+                QCoreApplication.processEvents()
+                self.ui.barraProgreso.setVisible(False)            
+
+
+        else: #Añadir el punto de predicción a lo ya existente
+            #Esta es la versión simple, hay que añadir la múltiple más tarde
+            #IDEA: no es necesario un if else, hacer un for que pase por todos los plots para añadir los puntos a cada uno
+            layout = self.ui.placeholderGrafica.layout()
+            canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
+            fig = canvas.figure
+            eje = fig.axes[0]
+            
+            #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
+            # Graficar el punto de predicción con seaborn
+            # Verificar si ya existe 'Predicción' en la leyenda
+            handles, labels = eje.get_legend_handles_labels()
+            labelAUsar = 'Predicción' if 'Predicción' not in labels else None
+
+            sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
+                        label=labelAUsar, edgecolor='black', linewidth=1.5, 
+                        ax=eje, zorder=5, legend=False)
+
+            # Actualizar la leyenda solo si hay labels
+            if labelAUsar or handles:
+                eje.legend()
+                
+            canvas.draw()
 
 
 
