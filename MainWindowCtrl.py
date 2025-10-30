@@ -20,9 +20,10 @@ from UtilidadesInterfaz import PandasModel as mp
 from UtilidadesInterfaz import Mensajes as msj
 from VentanaCargaCtrl import VentanaCargaCtrl
 from UtilidadesInterfaz import PandasModelConColor
+from UtilidadesInterfaz import CheckableComboBox
 from PyQt6.QtCore import Qt
 from transiciones import TransicionPaginas
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg 
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 #Globales
@@ -38,8 +39,8 @@ class MainWindowCtrl(QMainWindow):
     def __init__(self):
         """
         Inicializa la ventana principal y configura los elementos de la interfaz.
-        Crea las variables necesarias para almacenar los distintos DataFrames 
-        (original, procesado, entrenamiento y prueba) e inicializa la interfaz 
+        Crea las variables necesarias para almacenar los distintos DataFrames
+        (original, procesado, entrenamiento y prueba) e inicializa la interfaz
         llamando a los métodos de configuración y conexión de señales.
         """
         super().__init__()
@@ -82,16 +83,16 @@ class MainWindowCtrl(QMainWindow):
         self.tamDfProc = None
         self.tamDf = None
         # Columnas seleccionadas para entrada y salida
-        self.columnaEntrada = None
+        self.columnasEntrada = None
         self.columnaSalida = None
 
-        self.columnaEntradaGraficada = None
+        self.columnasEntradaGraficada = None
         self.columnaSalidaGraficada = None
-        
+
         #Modelo
         self.modelo=None
         self.descripcionModelo=None
-        
+
         #Metricas
         self.r2Train=None
         self.r2Test=None
@@ -112,6 +113,18 @@ class MainWindowCtrl(QMainWindow):
 
     def configurarInterfaz(self):
         """Configuración inicial de la interfaz"""
+        #Configuracion ComboboxSeleccion
+        original_combo = self.ui.cmbEntrada
+        parent = original_combo.parent()
+        layout = parent.layout()
+        self.checkable_combo_entrada = CheckableComboBox(parent)
+        # Copiar propiedades importantes
+        self.checkable_combo_entrada.setGeometry(original_combo.geometry())
+        # Reemplazar el widget en el layout
+        if layout:
+            layout.replaceWidget(original_combo, self.checkable_combo_entrada)
+        original_combo.deleteLater() # Eliminar el original
+        self.ui.cmbEntrada = self.checkable_combo_entrada # Asignar el nuevo a la UI
         # Ocultar botones inicialmente
         #el de las columnas
         self.ui.conjuntoTabs.setCurrentIndex(0)
@@ -173,15 +186,15 @@ class MainWindowCtrl(QMainWindow):
         """Ir a la pestaña de preprocesado con animación"""
         self.transicion.cambiarPaginaConAnimacion(1)
 
-    
-       
+
+
 
     def abrirExplorador(self):
         """
         Abre un cuadro de diálogo para seleccionar un archivo y carga los datos en la tabla.
-        Permite al usuario seleccionar un archivo con los formatos permitidos. 
-        Si se selecciona una ruta válida, intenta cargar los datos utilizando la 
-        función `impd.cargarDatos()` y mostrarlos en la tabla mediante `self.cargarTabla()`. 
+        Permite al usuario seleccionar un archivo con los formatos permitidos.
+        Si se selecciona una ruta válida, intenta cargar los datos utilizando la
+        función `impd.cargarDatos()` y mostrarlos en la tabla mediante `self.cargarTabla()`.
         En caso de error, muestra mensajes de advertencia apropiados.
 
         Raises:
@@ -195,7 +208,7 @@ class MainWindowCtrl(QMainWindow):
             "",
             "Archivos csv: (*.csv);;Archivos xlx: (*.xlx);;Archivos xlsx: (*.xlsx);; Archivos db: (*.db)"
         )
-        
+
         if ruta != "":
             self.ui.lineEditRutaArchivo.setText(ruta)
             try:
@@ -211,13 +224,13 @@ class MainWindowCtrl(QMainWindow):
                 self.ui.cmbOpcionesPreprocesado.hide()
                 self.ui.botonAplicarPreprocesado.hide()
             except ValueError as e:
-                msj.crearAdvertencia(self, "Error inesperado", 
+                msj.crearAdvertencia(self, "Error inesperado",
                     "Se ha producido un error inesperado al cargar el archivo")
             except FileNotFoundError as f:
-                msj.crearAdvertencia(self, "Archivo no encontrado", 
+                msj.crearAdvertencia(self, "Archivo no encontrado",
                     "No se ha encontrado el archivo especificado")
         else:
-            msj.crearAdvertencia(self, "Ruta no encontrada", 
+            msj.crearAdvertencia(self, "Ruta no encontrada",
                 "Se debe seleccionar un archivo válido")
 
 
@@ -245,27 +258,29 @@ class MainWindowCtrl(QMainWindow):
             self.columnas =[mensajeDefectoCmb]
             self.columnas.extend(gd.cargaColumnas(df))
             self.ui.cmbEntrada.clear()
+            for col in self.columnas[1:]:
+                self.ui.cmbEntrada.addItem(col)
             self.ui.cmbSalida.clear()
-            self.ui.cmbEntrada.addItems(self.columnas)
             self.ui.cmbSalida.addItems(self.columnas)
 
         except ValueError as e:
-            msj.crearAdvertencia(self, "Error inesperado", 
+            msj.crearAdvertencia(self, "Error inesperado",
                 "Se ha producido un error inesperado al crear la tabla")
-    
+
     def confirmarSeleccion(self):
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "Primero debe cargar un archivo")
             return
-        
-        entrada = self.ui.cmbEntrada.currentText()
+
+        entrada = self.ui.cmbEntrada.getCheckedItems()
         salida = self.ui.cmbSalida.currentText()
-        if (entrada != mensajeDefectoCmb and salida != mensajeDefectoCmb):
+        if (len(entrada) >0 and salida != mensajeDefectoCmb):
             msj.crearInformacion(self,"Datos Seleccionados",
                 f"Entrada: {entrada}\nSalida: {salida}")
-            
+
             # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
-            self.columnaEntrada =  entrada
+            # CAMBIO IMPORTANTE: Se guarda la columna de entrada como una lista para futura compatibilidad con selección múltiple.
+            self.columnasEntrada =  entrada
             self.columnaSalida = salida
             self.marcarColumnasSeleccionadas(self.df)
             #Ponemos que se vean despues de seleccionar
@@ -278,25 +293,27 @@ class MainWindowCtrl(QMainWindow):
         else:
              msj.crearAdvertencia(self,"Advertencia",
                 "Debe seleccionar una columna para la entrada y la salida.")
-    
+
 
     #MODIFICADO PARA METER MULTIVARIABLES
     def marcarColumnasSeleccionadas(self, dfEntr):
-        if self.df is None or self.columnaEntrada is None or self.columnaSalida is None:
+        if self.df is None or self.columnasEntrada is None or self.columnaSalida is None:
             return
-        
-        # Convertir columnaEntrada a lista si es string
-        if isinstance(self.columnaEntrada, str):
-            columnas_entrada = [self.columnaEntrada]
+
+        # CAMBIO IMPORTANTE: El código original ya manejaba correctamente una lista aquí, por lo que no se necesitan cambios.
+        # Se mantiene la lógica para asegurar que 'columnas_entrada' sea siempre una lista.
+        if isinstance(self.columnasEntrada, str):
+            columnas_entrada = [self.columnasEntrada]
         else:
-            columnas_entrada = self.columnaEntrada
-        
-        model = PandasModelConColor(dfEntr, columna_verde=columnas_entrada, 
+            columnas_entrada = self.columnasEntrada
+
+        model = PandasModelConColor(dfEntr, columna_verde=columnas_entrada,
                                     columna_roja=self.columnaSalida, tachar_nan=True)
         self.ui.tableViewDataFrame.setModel(model)
         self.ui.tableViewDataFrame.resizeColumnsToContents()
-        
+
         # Mostrar todas las columnas de entrada
+        # CAMBIO IMPORTANTE: El código original ya formateaba la lista correctamente. No se necesitan cambios.
         if isinstance(columnas_entrada, list):
             entradas_str = ", ".join(columnas_entrada)
         else:
@@ -305,10 +322,14 @@ class MainWindowCtrl(QMainWindow):
 
 
     def actualizarColumnasSeleccionadas(self):
-        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnaEntrada is not None and self.columnaSalida is not None:
-            self.statusBar().showMessage(f"Entrada: {self.columnaEntrada} | Salida: {self.columnaSalida}")            
-        if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnaEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
-            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
+        if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnasEntrada is not None and self.columnaSalida is not None:
+            # CAMBIO IMPORTANTE: Se formatea la lista de columnas de entrada para mostrarla correctamente en la barra de estado.
+            entradas_str = ", ".join(self.columnasEntrada)
+            self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalida}")
+        if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnasEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
+            # CAMBIO IMPORTANTE: Se formatea la lista de columnas de entrada (para la gráfica) para mostrarla en la barra de estado.
+            entradas_str = ", ".join(self.columnasEntradaGraficada)
+            self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
 
 
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
@@ -316,24 +337,24 @@ class MainWindowCtrl(QMainWindow):
     def rellenarNanColumnasNumericas(self, df, metodo, valorConstante=None):
         """
         Rellena valores NaN en las columnas de entrada y salida seleccionadas.
-        
+
         Args:
             df: DataFrame a procesar
             metodo: 'media', 'mediana' o 'constante'
             valorConstante: valor a usar si metodo='constante'
-            
+
         Returns:
             DataFrame con valores NaN rellenados en las columnas seleccionadas
         """
-        # Convertir columnaEntrada a lista si es string 
-        if isinstance(self.columnaEntrada, str):
-            columnas_entrada = [self.columnaEntrada]
+        # CAMBIO IMPORTANTE: La lógica original ya era compatible con 'columnasEntrada' como lista. No se requieren cambios.
+        if isinstance(self.columnasEntrada, str):
+            columnas_entrada = [self.columnasEntrada]
         else:
-            columnas_entrada = self.columnaEntrada
-        
+            columnas_entrada = self.columnasEntrada
+
         # Combinar columnas de entrada y salida
         columnas_a_procesar = columnas_entrada + [self.columnaSalida]
-        
+
         for col in columnas_a_procesar:
             # Verificar que la columna existe y es numérica
             if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
@@ -346,7 +367,7 @@ class MainWindowCtrl(QMainWindow):
                         df[col] = df[col].fillna(valor)
                     elif metodo == 'constante' and valorConstante is not None:
                         df[col] = df[col].fillna(valorConstante)
-        
+
         return df
 
 
@@ -354,24 +375,24 @@ class MainWindowCtrl(QMainWindow):
         """Aplica la operación de preprocesamiento seleccionada"""
         if self.ui.cmbOpcionesPreprocesado.currentText() == "Seleccione un método...":
             return
-        
+
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "No hay datos cargados")
             return
-        
+
         # Verificar que se hayan seleccionado columnas
-        if self.columnaEntrada is None or self.columnaSalida is None:
-            msj.crearAdvertencia(self, "Sin columnas seleccionadas", 
+        if self.columnasEntrada is None or self.columnaSalida is None:
+            msj.crearAdvertencia(self, "Sin columnas seleccionadas",
                 "Debe seleccionar las columnas de entrada y salida primero")
             return
-        
-        # Convertir columnaEntrada a lista si es string (compatibilidad) -> si es simple-> Lo mete en una lsita, si ya es lista, la deja
-        if isinstance(self.columnaEntrada, str):
-            columnas_entrada = [self.columnaEntrada]
+
+        # CAMBIO IMPORTANTE: La lógica original ya era compatible con 'columnasEntrada' como lista. No se requieren cambios.
+        if isinstance(self.columnasEntrada, str):
+            columnas_entrada = [self.columnasEntrada]
         else:
-            columnas_entrada = self.columnaEntrada
+            columnas_entrada = self.columnasEntrada
         columnas_seleccionadas = columnas_entrada + [self.columnaSalida]
-        
+
         self.dfProcesado = self.df.copy(deep=True)
         opcion = self.ui.cmbOpcionesPreprocesado.currentText()
 
@@ -380,50 +401,50 @@ class MainWindowCtrl(QMainWindow):
                 case "Eliminar filas con NaN":
                     nanAntes = self.dfProcesado[columnas_seleccionadas].isna().sum().sum()
                     # Eliminar filas que tengan NaN en las columnas seleccionadas
-                    self.dfProcesado.dropna(subset=columnas_seleccionadas, 
+                    self.dfProcesado.dropna(subset=columnas_seleccionadas,
                                         inplace=True, ignore_index=True)
-                    
+
                     msj.crearInformacion(self, "Preprocesado Aplicado",
                         f"Filas eliminadas: {self.tamDf - len(self.dfProcesado)}\n"
                         f"NaN eliminados: {nanAntes}")
-                
+
                 case "Rellenar con la media (Numpy)":
                     self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='media')
                     msj.crearInformacion(self, "Preprocesado Aplicado",
                         "NaN rellenados con la media en columnas seleccionadas")
-                
+
                 case "Rellenar con la mediana":
                     self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='mediana')
                     msj.crearInformacion(self, "Preprocesado Aplicado",
                         "NaN rellenados con la mediana en columnas seleccionadas")
-                
+
                 case "Rellenar con un valor constante":
                     from PyQt6.QtWidgets import QInputDialog
                     valorConstante, ok = QInputDialog.getText(self, "Valor constante",
                         "Introduce el valor constante para rellenar NaN:")
-                    
+
                     if ok and valorConstante:
                         valorNumerico = float(valorConstante)
                         self.dfProcesado = self.rellenarNanColumnasNumericas(
-                            self.dfProcesado, 
-                            metodo='constante', 
+                            self.dfProcesado,
+                            metodo='constante',
                             valorConstante=valorNumerico
                         )
                         msj.crearInformacion(self, "Preprocesado Aplicado",
                             f"NaN rellenados con {valorNumerico} en columnas seleccionadas")
                     else:
                         return
-            
+
             self.cargarTabla(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
             self.tamDfProc = len(self.dfProcesado)
-            
+
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
             mensaje += f"Filas: {self.tamDf} → {self.tamDfProc}\n"
             mensaje += f"NaN en columnas seleccionadas: {self.df[columnas_seleccionadas].isna().sum().sum()} → {self.dfProcesado[columnas_seleccionadas].isna().sum().sum()}"
             msj.crearInformacion(self, "Éxito", mensaje)
-            
+
             # Verificar si hay NaN en las columnas de entrada y salida
             if not self.dfProcesado[columnas_seleccionadas].isnull().values.any():
                 # Mostrar botón de dividir datos
@@ -433,10 +454,10 @@ class MainWindowCtrl(QMainWindow):
                 self.ui.sliderProporcionTest.show()
                 self.ui.lblDatosDivision.show()
             else:
-                msj.crearAdvertencia(self, "NaN restantes", 
+                msj.crearAdvertencia(self, "NaN restantes",
                     "Aún quedan valores NaN en las columnas seleccionadas.\n"
                     "Debe aplicar otro método de preprocesado.")
-            
+
         except Exception as e:
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
 
@@ -449,32 +470,33 @@ class MainWindowCtrl(QMainWindow):
         test = float(value)
         train = 100 - test
         self.ui.lblDatosDivision.setText(f"Test: {test}% --- Filas: {round(longitud*test/100)}\nTrain: {train}% --- Filas: {round(longitud*train/100)}")
-        
+
     def _actualizarPorcentajeTest(self):
         """Actualiza la proporción de test según el valor del slider"""
         value = self.ui.sliderProporcionTest.value()
         self.proporcionDeTest = float(value) / 100
-    
+
     def actualizarPorcentajeSpin(self):
         """Actualiza la proporción de test del slider el valor del spin"""
         value = self.ui.numeroSliderTest.value()
         self.ui.sliderProporcionTest.setValue(value)
         self.proporcionDeTest = float(value) / 100
-        
 
-    def _ejecutarDatasplit(self, tamañoTest):  
+
+    def _ejecutarDatasplit(self, tamañoTest):
         """Realiza el datasplit en dataFrameTrain y dataFrameTest"""
         if self.dfProcesado is None:
-            self.dataFrameTrain, self.dataFrameTest = train_test_split(self.df, test_size=tamañoTest)   
+            self.dataFrameTrain, self.dataFrameTest = train_test_split(self.df, test_size=tamañoTest)
             return
-        
+
         # Verificar que no hay nulos en las columnas seleccionadas
-        columnas_importantes = [self.columnaEntrada, self.columnaSalida]
+        # CAMBIO IMPORTANTE: Se concatena la lista de columnas de entrada con la de salida para formar la lista de columnas a verificar.
+        columnas_importantes = self.columnasEntrada + [self.columnaSalida]
         if self.dfProcesado[columnas_importantes].isnull().values.any() == True:
-            msj.crearAdvertencia(self, "Presencia de Nulos", 
+            msj.crearAdvertencia(self, "Presencia de Nulos",
                 "Para continuar al datasplit no puede tener nulos en las columnas de entrada o salida")
             return
-        
+
         self.dataFrameTrain, self.dataFrameTest = train_test_split(self.dfProcesado, test_size=tamañoTest)
 
 
@@ -482,17 +504,17 @@ class MainWindowCtrl(QMainWindow):
         """Calcula las líneas de cada parte y su porcentaje real y lo muestra"""
         if self.dataFrameTrain is None or self.dataFrameTest is None:
             return
-        
+
         # Líneas y porcentaje de líneas del entrenamiento
         porcentajeTrain = (len(self.dataFrameTrain) / self.tamDfProc) * 100
         mensajeTrain = f"{len(self.dataFrameTrain)} Líneas de Entrenamiento --- {porcentajeTrain:.2f}% de los datos"
-        
+
         # Líneas y porcentaje de líneas del test
         porcentajeTest = 100 - porcentajeTrain
         mensajeTest = f"{len(self.dataFrameTest)} Líneas de Test --- {porcentajeTest:.2f}% de los datos"
-        
+
         # Mostrar en un mensaje informativo
-        msj.crearInformacion(self, "División Completada", 
+        msj.crearInformacion(self, "División Completada",
             f"{mensajeTrain}\n{mensajeTest}")
 
 
@@ -500,10 +522,10 @@ class MainWindowCtrl(QMainWindow):
         """Realiza el proceso de datasplit y muestra los resultados"""
         # Actualizar la proporción según el slider
         self._actualizarPorcentajeTest()
-        
+
         # Ejecutar el datasplit
         self._ejecutarDatasplit(self.proporcionDeTest)
-        
+
         # Mostrar los resultados si el split fue exitoso
         if self.dataFrameTrain is not None and self.dataFrameTest is not None:
             self._mostrarResultadosSplit()
@@ -538,7 +560,7 @@ class MainWindowCtrl(QMainWindow):
         if ruta:
             parametros = {
                 "modelo": self.modelo,
-                "columnaEntrada": self.columnaEntradaGraficada,
+                "columnasEntrada": self.columnasEntradaGraficada,
                 "columnaSalida": self.columnaSalidaGraficada,
                 "r2Train": self.r2Train,
                 "r2Test": self.r2Test,
@@ -570,19 +592,21 @@ class MainWindowCtrl(QMainWindow):
         else:
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
-        
+
     def crearAjustarModelo(self):
         """Método usado para crear, ajustar, testear y obtener estadísticas como R**2 y ECM a partir de los datos procesados anteriormente"""
         if self.dataFrameTrain is None or self.dataFrameTest is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay datos de entrenamiento o test disponibles")
             return
-        
-        if self.columnaEntradaGraficada is None or self.columnaSalidaGraficada is None:
+
+        if self.columnasEntradaGraficada is None or self.columnaSalidaGraficada is None:
             msj.crearAdvertencia(self, "Error de columnas", "No se han seleccionado las columnas de entrada y salida")
             return
-        self.xTrain = self.dataFrameTrain[[self.columnaEntradaGraficada]]
+        # CAMBIO IMPORTANTE: Se selecciona el subconjunto de columnas de entrada directamente usando la lista.
+        # El uso de corchetes simples `[]` es suficiente porque `columnasEntradaGraficada` ya es una lista.
+        self.xTrain = self.dataFrameTrain[self.columnasEntradaGraficada]
         self.yTrain = self.dataFrameTrain[self.columnaSalidaGraficada]
-        self.xTest = self.dataFrameTest[[self.columnaEntradaGraficada]]
+        self.xTest = self.dataFrameTest[self.columnasEntradaGraficada]
         self.yTest = self.dataFrameTest[self.columnaSalidaGraficada]
 
         self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
@@ -594,7 +618,7 @@ class MainWindowCtrl(QMainWindow):
         self.r2Test = r2_score(self.yTest, yTestPred)
 
         self.ecmTrain = mean_squared_error(self.yTrain, yTrainPred)
-        self.ecmTest = mean_squared_error(self.yTest, yTestPred) 
+        self.ecmTest = mean_squared_error(self.yTest, yTestPred)
 
 
     def plotGrafica(self):
@@ -603,7 +627,7 @@ class MainWindowCtrl(QMainWindow):
         if self.modelo is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para graficar")
             return
-        
+
         if self.xTrain is None or self.yTrain is None or self.xTest is None or self.yTest is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay datos de entrenamiento o test para graficar")
             return
@@ -622,10 +646,14 @@ class MainWindowCtrl(QMainWindow):
         eje = fig.add_subplot(111)
         self.ui.barraProgreso.setValue(40)
 
+        # CAMBIO IMPORTANTE: Se extrae el nombre de la primera (y única) columna para graficar en 2D.
+        # Esto mantiene la funcionalidad actual pero es consciente de que la variable es una lista.
+        nombre_columna_x = self.columnasEntradaGraficada[0]
+
         # Datos
-        puntosXTrain = self.xTrain[self.columnaEntradaGraficada]
+        puntosXTrain = self.xTrain[nombre_columna_x]
         puntosYTrain = self.yTrain
-        puntosXTest = self.xTest[self.columnaEntradaGraficada]
+        puntosXTest = self.xTest[nombre_columna_x]
         puntosYTest = self.yTest
 
         sns.scatterplot(x=puntosXTrain, y=puntosYTrain, color='blue', label='Train', ax=eje)
@@ -638,7 +666,8 @@ class MainWindowCtrl(QMainWindow):
 
         #Indicaciones
         eje.set_title("Regresión Lineal", fontsize=14)
-        eje.set_xlabel(self.columnaEntradaGraficada)
+        # CAMBIO IMPORTANTE: Se usa el nombre de la columna extraído para la etiqueta del eje X.
+        eje.set_xlabel(nombre_columna_x)
         eje.set_ylabel(self.columnaSalidaGraficada)
         eje.legend()
         sns.despine(fig)
@@ -659,7 +688,7 @@ class MainWindowCtrl(QMainWindow):
         """Limpia completamente el widget de la gráfica"""
         # Obtener el layout actual
         layout = self.ui.placeholderGrafica.layout()
-        
+
         if layout is not None:
             # Eliminar todos los widgets del layout
             while layout.count():
@@ -667,7 +696,7 @@ class MainWindowCtrl(QMainWindow):
                 widget = item.widget()
                 if widget is not None:
                     widget.deleteLater()
-            
+
             # Eliminar el layout
             QWidget().setLayout(layout)
 
@@ -676,12 +705,14 @@ class MainWindowCtrl(QMainWindow):
         """Pipeline que sirve para el proceso completo de representar la gráfica tras su procesado"""
         self.procesoDataSplit()
         self.ui.conjuntoTabs.setCurrentIndex(2)
-        self.columnaEntradaGraficada = self.columnaEntrada
+        self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
-        self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
+        # CAMBIO IMPORTANTE: Se formatea la lista de columnas para la barra de estado.
+        entradas_str = ", ".join(self.columnasEntradaGraficada)
+        self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
         if self.ui.placeholderGrafica.layout() is not None:
             self.limpiarGrafica()
-        self.crearAjustarModelo() 
+        self.crearAjustarModelo()
         self.plotGrafica()
         # Solo actualizar UI si todo salió bien
         if self.r2Train is not None and self.r2Test is not None:
@@ -691,7 +722,8 @@ class MainWindowCtrl(QMainWindow):
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
             self.ui.btnAplicarPrediccion.show()
-            self.ui.labelEntradaActual.setText(self.columnaEntradaGraficada)
+            # CAMBIO IMPORTANTE: Se formatea la lista de columnas para mostrarla en la etiqueta.
+            self.ui.labelEntradaActual.setText(", ".join(self.columnasEntradaGraficada))
             self.ui.labelEntradaActual.show()
 
 
@@ -700,8 +732,8 @@ class MainWindowCtrl(QMainWindow):
         """Opción si quieres ir desde el principio a cargar una gráfica"""
         self.transicion.cambiarPaginaConAnimacion(2)
         self.cargarModelo()
-        
-        
+
+
     def cargarModelo(self):
         """Método usado para cargar modelos previamente guardados en formato .plk"""
         ruta, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -712,14 +744,14 @@ class MainWindowCtrl(QMainWindow):
         )
 
         if not ruta:
-            return 
+            return
 
         try:
             with open(ruta, 'rb') as f:
                 datos = pk.load(f)
 
             self.modelo = datos.get("modelo")
-            self.columnaEntradaGraficada = datos.get("columnaEntrada")
+            self.columnasEntradaGraficada = datos.get("columnasEntrada")
             self.columnaSalidaGraficada = datos.get("columnaSalida")
 
             metricas = datos.get("metricas", {})
@@ -729,6 +761,13 @@ class MainWindowCtrl(QMainWindow):
             self.ecmTest = metricas.get("ecmTest")
             self.formula = datos.get("formula", "")
 
+            # CAMBIO IMPORTANTE: Se prepara la cadena de texto de las columnas de entrada,
+            # sea una lista (nuevo formato) o un string (formato antiguo).
+            if isinstance(self.columnasEntradaGraficada, list):
+                entradas_str = ", ".join(self.columnasEntradaGraficada)
+            else:
+                entradas_str = self.columnasEntradaGraficada
+
             # Actualizar tab2
             self.ui.textDescribirModelo.setPlainText(datos.get("descripcion", ""))
             self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
@@ -736,14 +775,14 @@ class MainWindowCtrl(QMainWindow):
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
-            self.ui.labelEntradaActual.setText(self.columnaEntradaGraficada)
+            self.ui.labelEntradaActual.setText(entradas_str) # Usar la cadena formateada
             self.ui.btnAplicarPrediccion.show()
             self.ui.labelEntradaActual.show()
             self.ui.spinBoxEntrada.show()
             self.ui.labelPrediccion.hide()
             self.limpiarGrafica()
-            self.statusBar().showMessage(f"Entrada: {self.columnaEntradaGraficada} | Salida: {self.columnaSalidaGraficada}")
-            
+            self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
+
             #Actualizar tab1
             self.ui.botonDividirTest.hide()
             self.ui.sliderProporcionTest.hide()
@@ -771,7 +810,7 @@ class MainWindowCtrl(QMainWindow):
 #Le da al botón de predecir y se llama a pipelinePrediccion()
 #Entran unos datosEntrada en orden con este formato [[120, 3, 5]] (por ejemplo), se crea la predicción de Y y se pone en un label
 #Con los datosEntrada se crea una gráfica mediante plotPrediccion
-#Según si es creado o cargado, añade la predicción a lo ya graficado o crea la gráfica de 0 
+#Según si es creado o cargado, añade la predicción a lo ya graficado o crea la gráfica de 0
 #Ya se añadirá una versión para rlm
     def actualizarDatosPrediccion(self):
         nuevaEntrada = self.ui.spinBoxEntrada.value()
@@ -779,30 +818,31 @@ class MainWindowCtrl(QMainWindow):
         self.ui.spinBoxEntrada.setValue(0)
 
     def pipelinePrediccion(self):
-        # Para predicción simple (1 columna de entrada)
-        # self.columnaEntradaGraficada debe ser un string
-        if not isinstance(self.columnaEntradaGraficada, str):
-            msj.crearAdvertencia(self, "Error de configuración", 
+        # CAMBIO IMPORTANTE: Se ajusta la condición para verificar si la lista de columnas de entrada tiene exactamente un elemento,
+        # lo que es necesario para la predicción y graficación simple.
+        if not (isinstance(self.columnasEntradaGraficada, list) and len(self.columnasEntradaGraficada) == 1):
+            msj.crearAdvertencia(self, "Error de configuración",
                 "La predicción gráfica solo funciona con una columna de entrada")
             return
-        
+
         # Solo necesitamos un valor de entrada para predicción simple
         if len(self.datosEntrada) < 1:
             self.actualizarDatosPrediccion()
             if len(self.datosEntrada) < 1:
-                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnaEntradaGraficada}")
+                # CAMBIO IMPORTANTE: Se accede al primer elemento de la lista para mostrar el nombre de la columna.
+                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
                 return
-        
+
         if self.modelo is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para predicción")
             return
-        
+
         # Para regresión simple: predict espera [[valor]]
         self.prediccion = self.modelo.predict([[self.datosEntrada[0]]])
         self.ui.labelPrediccion.setText(f"Valor de {self.columnaSalidaGraficada} predicho: {self.prediccion[0]:.4f}")
         self.ui.labelPrediccion.show()
         self.plotPrediccion()
-        
+
         # Limpiar datos de entrada para la próxima predicción
         self.datosEntrada.clear()
 
@@ -826,18 +866,19 @@ class MainWindowCtrl(QMainWindow):
 
                 # Graficar solo el punto de predicción inicialmente
                 sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
-                            label='Predicción', edgecolor='black', linewidth=1.5, 
+                            label='Predicción', edgecolor='black', linewidth=1.5,
                             ax=eje, zorder=5, legend=True)
 
                 #Crear la recta de regresión
                 xMin, xMax = eje.get_xlim()
                 xLine = np.linspace(xMin, xMax, 100).reshape(-1, 1)
-                yLine = self.modelo.intercept_ + self.modelo.coef_[0] * xLine            
+                yLine = self.modelo.intercept_ + self.modelo.coef_[0] * xLine
                 eje.plot(xLine, yLine, color="red", linewidth=2, label="Recta de regresión")
 
                 # Indicaciones
                 eje.set_title("Regresión Lineal", fontsize=14)
-                eje.set_xlabel(self.columnaEntradaGraficada)
+                # CAMBIO IMPORTANTE: Se accede al primer elemento de la lista para la etiqueta del eje X.
+                eje.set_xlabel(self.columnasEntradaGraficada[0])
                 eje.set_ylabel(self.columnaSalidaGraficada)
                 eje.legend()
                 sns.despine(fig)
@@ -851,7 +892,7 @@ class MainWindowCtrl(QMainWindow):
                 canvas.draw()
                 self.ui.barraProgreso.setValue(100)
                 QCoreApplication.processEvents()
-                self.ui.barraProgreso.setVisible(False)            
+                self.ui.barraProgreso.setVisible(False)
 
 
         else: #Añadir el punto de predicción a lo ya existente
@@ -861,7 +902,7 @@ class MainWindowCtrl(QMainWindow):
             canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
             fig = canvas.figure
             eje = fig.axes[0]
-            
+
             #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
             # Graficar el punto de predicción con seaborn
             # Verificar si ya existe 'Predicción' en la leyenda
@@ -869,13 +910,13 @@ class MainWindowCtrl(QMainWindow):
             labelAUsar = 'Predicción' if 'Predicción' not in labels else None
 
             sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
-                        label=labelAUsar, edgecolor='black', linewidth=1.5, 
+                        label=labelAUsar, edgecolor='black', linewidth=1.5,
                         ax=eje, zorder=5, legend=False)
 
             # Actualizar la leyenda solo si hay labels
             if labelAUsar or handles:
                 eje.legend()
-                
+
             canvas.draw()
 
 

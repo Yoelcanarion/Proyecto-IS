@@ -6,7 +6,7 @@ import pickle as pk
 def cargaColumnasTotal(datos):
     """
      Extrae las columnas de un dataframe.
-     
+
     Args:
         datos (Dataframe): La tabla de la cual se desea extraer las colunas
         """
@@ -20,7 +20,7 @@ def cargaColumnasNumericas(datos):
     """
     Extrae columnas numéricas. Si hay columnas con números en formato string,
     intenta convertirlas a número antes de descartarlas.
-    
+
     Modifica el DataFrame convirtiendo estas columnas a tipo numérico.
     """
     columnas_validas = []
@@ -48,12 +48,23 @@ def cargaColumnas(datos, solo_numericas=True):
     else:
         return cargaColumnasTotal(datos)
 
-    
-def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion):
+
+def crearDiccionarioModelo(modelo,columnasEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion):
+    # CAMBIO IMPORTANTE: La fórmula se genera dinámicamente para soportar una o más variables de entrada.
+    # Itera sobre los coeficientes y los nombres de las columnas de entrada para construir la ecuación.
+    formula_parts = []
+    if hasattr(modelo, 'coef_') and hasattr(modelo, 'intercept_'):
+        for i, col in enumerate(columnasEntrada):
+            formula_parts.append(f"{modelo.coef_[i]:.4f} * {col}")
+        formula = f"y = {modelo.intercept_:.4f} + {' + '.join(formula_parts)}"
+    else:
+        formula = "Fórmula no disponible"
+
+
     modeloGuardado = {
     "modelo": modelo,
     "descripcion": descripcion,
-    "columnaEntrada": columnaEntrada,
+    "columnaEntrada": columnasEntrada,
     "columnaSalida": columnaSalida,
     "metricas": {
         "r2Train": r2Train,
@@ -61,7 +72,7 @@ def crearDiccionarioModelo(modelo,columnaEntrada,columnaSalida,r2Train,r2Test, e
         "ecmTrain": ecmTrain,
         "ecmTest": ecmTest
     },
-    "formula": f"y = {modelo.coef_[0]:.2f} * x + {modelo.intercept_:.2f}",
+    "formula": formula, # CAMBIO IMPORTANTE: Se utiliza la fórmula generada dinámicamente.
     }
     return modeloGuardado
 
@@ -70,11 +81,11 @@ import pickle as pk
 def crearModeloDisco(dict_modelo, ruta):
     """
     Guarda un modelo de regresión lineal y sus metadatos en disco.
-    
+
     Parámetros:
         dict_modelo: diccionario con el modelo y su información asociada
         ruta: ruta del archivo donde se guardará el modelo (.pkl)
-    
+
     Retorna:
         None si todo ha ido bien.
         str con el mensaje de error si ha ocurrido un fallo durante la serialización o el guardado.
@@ -92,7 +103,3 @@ def crearModeloDisco(dict_modelo, ruta):
     except Exception as e:
         # Cualquier otro error no previsto
         return f"Error desconocido al guardar el modelo: {e}"
-
-        
-    
-    
