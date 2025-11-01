@@ -153,6 +153,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.barraProgreso.hide()
         self.ui.btnGuardarModelo.hide()
         self.ui.lblDatosDivision.hide()
+        self.ui.placeholderCorrelacion.hide()
         #Widgets de predicción
         self.ui.btnAplicarPrediccion.hide()
         self.ui.labelEntradaActual.hide()
@@ -419,7 +420,6 @@ class MainWindowCtrl(QMainWindow):
                         "NaN rellenados con la mediana en columnas seleccionadas")
 
                 case "Rellenar con un valor constante":
-                    from PyQt6.QtWidgets import QInputDialog
                     valorConstante, ok = QInputDialog.getText(self, "Valor constante",
                         "Introduce el valor constante para rellenar NaN:")
 
@@ -604,14 +604,16 @@ class MainWindowCtrl(QMainWindow):
             return
         # CAMBIO IMPORTANTE: Se selecciona el subconjunto de columnas de entrada directamente usando la lista.
         # El uso de corchetes simples `[]` es suficiente porque `columnasEntradaGraficada` ya es una lista.
-        self.xTrain = self.dataFrameTrain[self.columnasEntradaGraficada]
+        #La salida de xTrain y xTest tiene la forma [[col1, col2,...],[col1, col2,...],...], sean las listas internas 
+        # filas de datos ordenadas por su respectiva columna en ese orden (osea que cada lista interna son las coordenadas independientes de un punto del modelo)
+        self.xTrain = self.dataFrameTrain[self.columnasEntradaGraficada]        
         self.yTrain = self.dataFrameTrain[self.columnaSalidaGraficada]
         self.xTest = self.dataFrameTest[self.columnasEntradaGraficada]
         self.yTest = self.dataFrameTest[self.columnaSalidaGraficada]
 
         self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
 
-        yTrainPred = self.modelo.predict(self.xTrain)
+        yTrainPred = self.modelo.predict(self.xTrain)  #Tiene la forma [pred1, pred2, ...], siendo pred la predicción de cada muestra de xTrain (con muestras me refiero a las listas internas)
         yTestPred = self.modelo.predict(self.xTest)
 
         self.r2Train = r2_score(self.yTrain, yTrainPred)
@@ -621,9 +623,12 @@ class MainWindowCtrl(QMainWindow):
         self.ecmTest = mean_squared_error(self.yTest, yTestPred)
 
 
-    def plotGrafica(self):
+    def plotGrafica(self):   #CAMBIOS NECESARIOS
         """Método que se encarga de graficar la regresión lineal con los datos del modelo"""
         # Verificar que el modelo y los datos existen
+        if len(self.columnasEntradaGraficada) > 2:
+            return
+        
         if self.modelo is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para graficar")
             return
@@ -643,34 +648,73 @@ class MainWindowCtrl(QMainWindow):
         sns.set(style="whitegrid", context="talk")
         fig = Figure(figsize=(6, 4))
         canvas = FigureCanvasQTAgg(fig)
-        eje = fig.add_subplot(111)
-        self.ui.barraProgreso.setValue(40)
+
 
         # CAMBIO IMPORTANTE: Se extrae el nombre de la primera (y única) columna para graficar en 2D.
         # Esto mantiene la funcionalidad actual pero es consciente de que la variable es una lista.
-        nombre_columna_x = self.columnasEntradaGraficada[0]
+        if len(self.columnasEntradaGraficada) == 1:
+            eje = fig.add_subplot(111)
+            self.ui.barraProgreso.setValue(40)
 
-        # Datos
-        puntosXTrain = self.xTrain[nombre_columna_x]
-        puntosYTrain = self.yTrain
-        puntosXTest = self.xTest[nombre_columna_x]
-        puntosYTest = self.yTest
+            # Datos
+            nombre_columna_x = self.columnasEntradaGraficada[0]
+            puntosXTrain = self.xTrain[nombre_columna_x]
+            puntosYTrain = self.yTrain
+            puntosXTest = self.xTest[nombre_columna_x]
+            puntosYTest = self.yTest
 
-        sns.scatterplot(x=puntosXTrain, y=puntosYTrain, color='blue', label='Train', ax=eje)
-        sns.scatterplot(x=puntosXTest, y=puntosYTest, color='orange', label='Test', ax=eje)
+            sns.scatterplot(x=puntosXTrain, y=puntosYTrain, color='blue', label='Train', ax=eje)
+            sns.scatterplot(x=puntosXTest, y=puntosYTest, color='orange', label='Test', ax=eje)
 
-        # Recta de regresión (línea roja)
-        xLine = np.linspace(min(puntosXTrain.min(), puntosXTest.min()), max(puntosXTrain.max(), puntosXTest.max()), 100)
-        yLine = self.modelo.predict(xLine.reshape(-1, 1))
-        eje.plot(xLine, yLine, color="red", linewidth=2, label="Recta de regresión")
+            # Recta de regresión (línea roja)
+            sns.regplot(x=puntosXTrain, y=puntosYTrain, ax=eje, scatter=False, color='red',
+                        line_kws={'linewidth': 2, 'label': 'Recta de regresión'})
 
-        #Indicaciones
-        eje.set_title("Regresión Lineal", fontsize=14)
-        # CAMBIO IMPORTANTE: Se usa el nombre de la columna extraído para la etiqueta del eje X.
-        eje.set_xlabel(nombre_columna_x)
-        eje.set_ylabel(self.columnaSalidaGraficada)
-        eje.legend()
-        sns.despine(fig)
+            #Indicaciones
+            eje.set_title("Regresión Lineal", fontsize=14)
+            # CAMBIO IMPORTANTE: Se usa el nombre de la columna extraído para la etiqueta del eje X.
+            eje.set_xlabel(nombre_columna_x)
+            eje.set_ylabel(self.columnaSalidaGraficada)
+            eje.legend()
+            sns.despine(fig)
+
+        elif len(self.columnasEntradaGraficada) == 2:
+                eje = fig.add_subplot(111, projection="3d")
+                self.ui.barraProgreso.setValue(40)
+
+                # Extraer las columnas correctamente
+                nombre_columna_x = self.columnasEntradaGraficada[0]
+                nombre_columna_y = self.columnasEntradaGraficada[1]
+                
+                # Obtener los datos
+                puntosXTrain = self.xTrain[nombre_columna_x]
+                puntosYTrain = self.xTrain[nombre_columna_y]
+                puntosZTrain = self.yTrain
+                
+                puntosXTest = self.xTest[nombre_columna_x]
+                puntosYTest = self.xTest[nombre_columna_y]
+                puntosZTest = self.yTest
+
+                # Graficar en 3D
+                eje.scatter(puntosXTrain, puntosYTrain, puntosZTrain, color='blue', label='Train', s=50)
+                eje.scatter(puntosXTest, puntosYTest, puntosZTest, color='orange', label='Test', s=50)
+
+                # Graficar el plano de regresión
+                x_min, x_max = puntosXTrain.min(), puntosXTrain.max()
+                y_min, y_max = puntosYTrain.min(), puntosYTrain.max()
+                x_range = np.linspace(x_min - 0.5, x_max + 0.5, 20)
+                y_range = np.linspace(y_min - 0.5, y_max + 0.5, 20)
+                X_mesh, Y_mesh = np.meshgrid(x_range, y_range)
+                XY_mesh = np.c_[X_mesh.ravel(), Y_mesh.ravel()]
+                Z_mesh = self.modelo.predict(XY_mesh).reshape(X_mesh.shape)
+                eje.plot_surface(X_mesh, Y_mesh, Z_mesh, color='red', alpha=0.5, label='Plano de regresión')
+
+                # Configurar etiquetas
+                eje.set_title("Regresión Lineal 3D", fontsize=14)
+                eje.set_xlabel(nombre_columna_x)
+                eje.set_ylabel(nombre_columna_y)
+                eje.set_zlabel(self.columnaSalidaGraficada)
+                eje.legend()
 
         # Añadir al layout
         layout.addWidget(canvas)
@@ -684,21 +728,103 @@ class MainWindowCtrl(QMainWindow):
         self.ui.barraProgreso.setVisible(False)
 
 
+    def plotCorrelacion(self):
+        """Método que se encarga de graficar la regresión lineal con los datos del modelo"""
+        # Verificar que el modelo y los datos existen
+        if len(self.columnasEntradaGraficada) > 2:
+            return
+        
+        if self.modelo is None:
+            msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para graficar")
+            return
+
+        if self.xTrain is None or self.yTrain is None or self.xTest is None or self.yTest is None:
+            msj.crearAdvertencia(self, "Error de datos", "No hay datos de entrenamiento o test para graficar")
+            return
+
+        # Mostrar y actualizar barra de progreso
+        self.ui.barraProgreso.setVisible(True)
+        self.ui.barraProgreso.setValue(0)
+        QCoreApplication.processEvents()
+        layout = QVBoxLayout(self.ui.placeholderCorrelacion)
+
+        # Crear figura con estilo Seaborn
+        sns.set(style="whitegrid", context="talk")
+        fig = Figure(figsize=(6, 4))
+        canvas = FigureCanvasQTAgg(fig)
+
+        if len(self.columnasEntradaGraficada) == 1:
+            eje = fig.add_subplot(111)
+            self.ui.barraProgreso.setValue(40)
+
+            # Datos
+            puntosXTest = self.xTest
+            puntosYTest = self.yTest
+            predicciones = self.modelo.predict(puntosXTest)
+
+            #predicciones
+            sns.scatterplot(x=puntosYTest, y=predicciones, color='blue', label='Predicciones individuales', ax=eje)
+
+            #Recta de correlación
+            sns.regplot(x=puntosYTest, y=predicciones, ax=eje, scatter=False, color='red',
+                        line_kws={'linewidth': 2, 'label': 'Recta de regresión'})
+
+            #Indicaciones
+            eje.set_title("Gráfica de correlación", fontsize=14)
+            eje.set_xlabel("Valores Reales")
+            eje.set_ylabel("Valores Predichos")
+            eje.legend()
+            sns.despine(fig)
+
+        elif len(self.columnasEntradaGraficada) == 2:
+                eje = fig.add_subplot(111)
+                self.ui.barraProgreso.setValue(40)
+
+                puntosXYTest = self.xTest
+                puntosZTest = self.yTest
+                predicciones = self.modelo.predict(puntosXYTest)
+
+                #predicciones
+                sns.scatterplot(x=puntosZTest, y=predicciones, color='blue', label='Predicciones individuales', ax=eje)
+
+                #Recta de correlación
+                sns.regplot(x=puntosZTest, y=predicciones, ax=eje, scatter=False, color='red',
+                            line_kws={'linewidth': 2, 'label': 'Recta de regresión'})
+
+                #Indicaciones
+                eje.set_title("Gráfica de correlación", fontsize=14)
+                eje.set_xlabel("Valores Reales")
+                eje.set_ylabel("Valores Predichos")
+                eje.legend()
+                sns.despine(fig)
+
+        # Añadir al layout
+        layout.addWidget(canvas)
+        self.ui.placeholderGrafica.setLayout(layout)
+        self.ui.barraProgreso.setValue(80)
+
+        # Refrescar
+        canvas.draw()
+        self.ui.barraProgreso.setValue(100)
+        QCoreApplication.processEvents()
+        self.ui.barraProgreso.setVisible(False)
+
     def limpiarGrafica(self):
         """Limpia completamente el widget de la gráfica"""
         # Obtener el layout actual
-        layout = self.ui.placeholderGrafica.layout()
+        for i in [self.ui.placeholderGrafica, self.ui.placeholderCorrelacion]:
+            layout = i.layout()
 
-        if layout is not None:
-            # Eliminar todos los widgets del layout
-            while layout.count():
-                item = layout.takeAt(0)
-                widget = item.widget()
-                if widget is not None:
-                    widget.deleteLater()
+            if layout is not None:
+                # Eliminar todos los widgets del layout
+                while layout.count():
+                    item = layout.takeAt(0)
+                    widget = item.widget()
+                    if widget is not None:
+                        widget.deleteLater()
 
-            # Eliminar el layout
-            QWidget().setLayout(layout)
+                # Eliminar el layout
+                QWidget().setLayout(layout)
 
 
     def pipelineModelo(self):
@@ -710,10 +836,12 @@ class MainWindowCtrl(QMainWindow):
         # CAMBIO IMPORTANTE: Se formatea la lista de columnas para la barra de estado.
         entradas_str = ", ".join(self.columnasEntradaGraficada)
         self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
-        if self.ui.placeholderGrafica.layout() is not None:
+        if self.ui.placeholderGrafica.layout() is not None or self.ui.placeholderCorrelacion.layout() is not None:
             self.limpiarGrafica()
-        self.crearAjustarModelo()
+        self.crearAjustarModelo()       
         self.plotGrafica()
+        self.plotCorrelacion()
+        self.ui.placeholderCorrelacion.show()
         # Solo actualizar UI si todo salió bien
         if self.r2Train is not None and self.r2Test is not None:
             self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
@@ -723,7 +851,7 @@ class MainWindowCtrl(QMainWindow):
             self.ui.textDescribirModelo.show()
             self.ui.btnAplicarPrediccion.show()
             # CAMBIO IMPORTANTE: Se formatea la lista de columnas para mostrarla en la etiqueta.
-            self.ui.labelEntradaActual.setText(", ".join(self.columnasEntradaGraficada))
+            self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
             self.ui.labelEntradaActual.show()
 
 
@@ -775,7 +903,7 @@ class MainWindowCtrl(QMainWindow):
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.show()
-            self.ui.labelEntradaActual.setText(entradas_str) # Usar la cadena formateada
+            self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")# Usar la cadena formateada
             self.ui.btnAplicarPrediccion.show()
             self.ui.labelEntradaActual.show()
             self.ui.spinBoxEntrada.show()
@@ -818,39 +946,37 @@ class MainWindowCtrl(QMainWindow):
         self.ui.spinBoxEntrada.setValue(0)
 
     def pipelinePrediccion(self):
-        # CAMBIO IMPORTANTE: Se ajusta la condición para verificar si la lista de columnas de entrada tiene exactamente un elemento,
-        # lo que es necesario para la predicción y graficación simple.
-        if not (isinstance(self.columnasEntradaGraficada, list) and len(self.columnasEntradaGraficada) == 1):
-            msj.crearAdvertencia(self, "Error de configuración",
-                "La predicción gráfica solo funciona con una columna de entrada")
-            return
-
-        # Solo necesitamos un valor de entrada para predicción simple
-        if len(self.datosEntrada) < 1:
-            self.actualizarDatosPrediccion()
-            if len(self.datosEntrada) < 1:
-                # CAMBIO IMPORTANTE: Se accede al primer elemento de la lista para mostrar el nombre de la columna.
-                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
-                return
-
         if self.modelo is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para predicción")
             return
 
-        # Para regresión simple: predict espera [[valor]]
-        self.prediccion = self.modelo.predict([[self.datosEntrada[0]]])
+        self.actualizarDatosPrediccion()
+        
+        #Verifica si aún faltan datos por ingresar
+        if len(self.datosEntrada) < len(self.columnasEntradaGraficada):
+            siguienteIndice = len(self.datosEntrada)
+            self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[siguienteIndice]}")
+            return
+
+        # predict espera [lista_de_valores], ya sea [[valor]] para simple o [[valor1, valor2, ...]] para múltiple
+        self.prediccion = self.modelo.predict([self.datosEntrada])
         self.ui.labelPrediccion.setText(f"Valor de {self.columnaSalidaGraficada} predicho: {self.prediccion[0]:.4f}")
         self.ui.labelPrediccion.show()
         self.plotPrediccion()
-
+        
         # Limpiar datos de entrada para la próxima predicción
         self.datosEntrada.clear()
+        # Resetear el label para la primera columna
+        self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
 
     #Hasta aquí todo bien
 
     def plotPrediccion(self):
         if self.ui.placeholderGrafica.layout() is None: #Crear la gráfica de 0
-            #Esta es la versión simple, hay que añadir la múltiple más tarde
+            if len(self.columnasEntradaGraficada) > 2:
+                return
+            
+            elif len(self.columnasEntradaGraficada) == 1:
                 self.ui.barraProgreso.setVisible(True)
                 self.ui.barraProgreso.setValue(0)
                 QCoreApplication.processEvents()
@@ -883,41 +1009,92 @@ class MainWindowCtrl(QMainWindow):
                 eje.legend()
                 sns.despine(fig)
 
-                # Añadir al layout
-                layout.addWidget(canvas)
-                self.ui.placeholderGrafica.setLayout(layout)
-                self.ui.barraProgreso.setValue(80)
-
-                # Refrescar
-                canvas.draw()
-                self.ui.barraProgreso.setValue(100)
+            elif len(self.columnasEntradaGraficada) == 2:
+                self.ui.barraProgreso.setVisible(True)
+                self.ui.barraProgreso.setValue(0)
                 QCoreApplication.processEvents()
-                self.ui.barraProgreso.setVisible(False)
+
+                layout = QVBoxLayout(self.ui.placeholderGrafica)
+
+                # Crear figura con estilo Seaborn
+                sns.set(style="whitegrid", context="talk")
+                fig = Figure(figsize=(6, 4))
+                canvas = FigureCanvasQTAgg(fig)
+                eje = fig.add_subplot(111, projection = "3d")
+                self.ui.barraProgreso.setValue(40)
+            #predicciones
+                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = labelAUsar, marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
+
+                xMin, xMax = eje.get_xlim()
+                yMin, yMax = eje.get_ylim()
+                X, Y = np.meshgrid(np.linspace(xMin, xMax, 100), np.linspace(yMin, yMax, 100))
+                Z = self.modelo.coef_[0] * X + self.modelo.coef_[1] * Y + self.modelo.intercept
+                eje.plot_surface(X, Y, Z, color='red', alpha=0.5, label='Plano de regresión')
+
+                eje.set_title("Regresión Lineal 3D", fontsize=14)
+                eje.set_xlabel(self.columnasEntradaGraficada[0])
+                eje.set_ylabel(self.columnasEntradaGraficada[1])
+                eje.set_zlabel(self.columnaSalidaGraficada)
+                eje.legend()
+
+                # Añadir al layout
+            layout.addWidget(canvas)
+            self.ui.placeholderGrafica.setLayout(layout)
+            self.ui.barraProgreso.setValue(80)
+
+            # Refrescar
+            canvas.draw()
+            self.ui.barraProgreso.setValue(100)
+            QCoreApplication.processEvents()
+            self.ui.barraProgreso.setVisible(False)
 
 
         else: #Añadir el punto de predicción a lo ya existente
-            #Esta es la versión simple, hay que añadir la múltiple más tarde
-            #IDEA: no es necesario un if else, hacer un for que pase por todos los plots para añadir los puntos a cada uno
-            layout = self.ui.placeholderGrafica.layout()
-            canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
-            fig = canvas.figure
-            eje = fig.axes[0]
+            if len(self.columnasEntradaGraficada) > 2:
+                return    
 
-            #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
-            # Graficar el punto de predicción con seaborn
-            # Verificar si ya existe 'Predicción' en la leyenda
-            handles, labels = eje.get_legend_handles_labels()
-            labelAUsar = 'Predicción' if 'Predicción' not in labels else None
 
-            sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
-                        label=labelAUsar, edgecolor='black', linewidth=1.5,
-                        ax=eje, zorder=5, legend=False)
+            elif len(self.columnasEntradaGraficada) == 1:
+                layout = self.ui.placeholderGrafica.layout()
+                canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
+                fig = canvas.figure
+                eje = fig.axes[0]
 
-            # Actualizar la leyenda solo si hay labels
-            if labelAUsar or handles:
-                eje.legend()
+                #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
+                # Graficar el punto de predicción con seaborn
+                # Verificar si ya existe 'Predicción' en la leyenda
+                handles, labels = eje.get_legend_handles_labels()
+                labelAUsar = 'Predicción' if 'Predicción' not in labels else None
 
-            canvas.draw()
+                sns.scatterplot(x=[self.datosEntrada[0]], y=self.prediccion, color='green', s=200, marker='*',
+                            label=labelAUsar, edgecolor='black', linewidth=1.5,
+                            ax=eje, zorder=5, legend=False)
+
+                # Actualizar la leyenda solo si hay labels
+                if labelAUsar or handles:
+                    eje.legend()
+
+                canvas.draw()
+            
+
+            elif len(self.columnasEntradaGraficada) == 2:
+                layout = self.ui.placeholderGrafica.layout()
+                canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
+                fig = canvas.figure
+                eje = fig.axes[0]
+
+                #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
+                # Graficar el punto de predicción con seaborn
+                # Verificar si ya existe 'Predicción' en la leyenda
+                handles, labels = eje.get_legend_handles_labels()
+                labelAUsar = 'Predicción' if 'Predicción' not in labels else None
+
+                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = labelAUsar, marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
+
+                if labelAUsar or handles:
+                    eje.legend()
+
+                canvas.draw()
 
 
 
