@@ -881,7 +881,7 @@ class MainWindowCtrl(QMainWindow):
             self.modelo = datos.get("modelo")
             self.columnasEntradaGraficada = datos.get("columnasEntrada")
             self.columnaSalidaGraficada = datos.get("columnaSalida")
-
+            print(f"aqui{self.columnasEntradaGraficada}")
             metricas = datos.get("metricas", {})
             self.r2Train = metricas.get("r2Train")
             self.r2Test = metricas.get("r2Test")

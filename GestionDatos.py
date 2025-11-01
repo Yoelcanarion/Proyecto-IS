@@ -64,7 +64,7 @@ def crearDiccionarioModelo(modelo,columnasEntrada,columnaSalida,r2Train,r2Test, 
     modeloGuardado = {
     "modelo": modelo,
     "descripcion": descripcion,
-    "columnaEntrada": columnasEntrada,
+    "columnasEntrada": columnasEntrada,
     "columnaSalida": columnaSalida,
     "metricas": {
         "r2Train": r2Train,
