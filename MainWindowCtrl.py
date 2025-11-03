@@ -159,6 +159,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.labelEntradaActual.hide()
         self.ui.labelEntradaActual.hide()
         self.ui.labelPrediccion.hide()
+        self.ui.spinBoxEntrada.hide()
 
 
     def conectarSenalesPreproceso(self):
@@ -277,7 +278,7 @@ class MainWindowCtrl(QMainWindow):
         salida = self.ui.cmbSalida.currentText()
         if (len(entrada) >0 and salida != mensajeDefectoCmb):
             msj.crearInformacion(self,"Datos Seleccionados",
-                f"Entrada: {entrada}\nSalida: {salida}")
+                f"Entrada: {', '.join(str(x) for x in entrada)}\nSalida: {salida}")
 
             # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
             # CAMBIO IMPORTANTE: Se guarda la columna de entrada como una lista para futura compatibilidad con selección múltiple.
@@ -675,7 +676,7 @@ class MainWindowCtrl(QMainWindow):
             # CAMBIO IMPORTANTE: Se usa el nombre de la columna extraído para la etiqueta del eje X.
             eje.set_xlabel(nombre_columna_x)
             eje.set_ylabel(self.columnaSalidaGraficada)
-            eje.legend()
+            eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
             sns.despine(fig)
 
         elif len(self.columnasEntradaGraficada) == 2:
@@ -714,7 +715,7 @@ class MainWindowCtrl(QMainWindow):
                 eje.set_xlabel(nombre_columna_x)
                 eje.set_ylabel(nombre_columna_y)
                 eje.set_zlabel(self.columnaSalidaGraficada)
-                eje.legend()
+                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
 
         # Añadir al layout
         layout.addWidget(canvas)
@@ -773,7 +774,7 @@ class MainWindowCtrl(QMainWindow):
             eje.set_title("Gráfica de correlación", fontsize=14)
             eje.set_xlabel("Valores Reales")
             eje.set_ylabel("Valores Predichos")
-            eje.legend()
+            eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
             sns.despine(fig)
 
         elif len(self.columnasEntradaGraficada) == 2:
@@ -795,7 +796,7 @@ class MainWindowCtrl(QMainWindow):
                 eje.set_title("Gráfica de correlación", fontsize=14)
                 eje.set_xlabel("Valores Reales")
                 eje.set_ylabel("Valores Predichos")
-                eje.legend()
+                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
                 sns.despine(fig)
 
         # Añadir al layout
@@ -881,7 +882,6 @@ class MainWindowCtrl(QMainWindow):
             self.modelo = datos.get("modelo")
             self.columnasEntradaGraficada = datos.get("columnasEntrada")
             self.columnaSalidaGraficada = datos.get("columnaSalida")
-            print(f"aqui{self.columnasEntradaGraficada}")
             metricas = datos.get("metricas", {})
             self.r2Train = metricas.get("r2Train")
             self.r2Test = metricas.get("r2Test")
@@ -1006,7 +1006,7 @@ class MainWindowCtrl(QMainWindow):
                 # CAMBIO IMPORTANTE: Se accede al primer elemento de la lista para la etiqueta del eje X.
                 eje.set_xlabel(self.columnasEntradaGraficada[0])
                 eje.set_ylabel(self.columnaSalidaGraficada)
-                eje.legend()
+                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
                 sns.despine(fig)
 
             elif len(self.columnasEntradaGraficada) == 2:
@@ -1023,19 +1023,19 @@ class MainWindowCtrl(QMainWindow):
                 eje = fig.add_subplot(111, projection = "3d")
                 self.ui.barraProgreso.setValue(40)
             #predicciones
-                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = labelAUsar, marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
+                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = "Predicción", marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
 
                 xMin, xMax = eje.get_xlim()
                 yMin, yMax = eje.get_ylim()
                 X, Y = np.meshgrid(np.linspace(xMin, xMax, 100), np.linspace(yMin, yMax, 100))
-                Z = self.modelo.coef_[0] * X + self.modelo.coef_[1] * Y + self.modelo.intercept
+                Z = self.modelo.coef_[0] * X + self.modelo.coef_[1] * Y + self.modelo.intercept_
                 eje.plot_surface(X, Y, Z, color='red', alpha=0.5, label='Plano de regresión')
 
                 eje.set_title("Regresión Lineal 3D", fontsize=14)
                 eje.set_xlabel(self.columnasEntradaGraficada[0])
                 eje.set_ylabel(self.columnasEntradaGraficada[1])
                 eje.set_zlabel(self.columnaSalidaGraficada)
-                eje.legend()
+                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
 
                 # Añadir al layout
             layout.addWidget(canvas)
@@ -1072,7 +1072,7 @@ class MainWindowCtrl(QMainWindow):
 
                 # Actualizar la leyenda solo si hay labels
                 if labelAUsar or handles:
-                    eje.legend()
+                    eje.legend(handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
 
                 canvas.draw()
             
@@ -1092,7 +1092,7 @@ class MainWindowCtrl(QMainWindow):
                 eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = labelAUsar, marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
 
                 if labelAUsar or handles:
-                    eje.legend()
+                    eje.legend(handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
 
                 canvas.draw()
 
