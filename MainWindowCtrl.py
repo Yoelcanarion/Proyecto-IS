@@ -27,7 +27,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 #Globales
-mensajeDefectoCmb = "--- Seleccione una columna ---"
+mensajeDefectoCmb = "--- Seleccione una columna---"
 
 
 class MainWindowCtrl(QMainWindow):
@@ -56,7 +56,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnConfirmar.clicked.connect(self.confirmarSeleccion)
         # Añadir opciones al combo de preprocesamiento
         self.ui.cmbOpcionesPreprocesado.addItems([
-            "Seleccione un método...",
+            "Seleccione un método para preprocesado",
             "Eliminar filas con NaN",
             "Rellenar con la media (Numpy)",
             "Rellenar con la mediana",
@@ -109,6 +109,28 @@ class MainWindowCtrl(QMainWindow):
         self.datosEntrada = []
         # Limpiar gráfica
         self.limpiarGrafica()
+
+    def resetearPaginaPreprocesado(self):
+        """Resetea los elementos de la página 1"""
+        self.ui.tableViewDataFrame.setModel(None)
+        self.ui.btnConfirmar.hide()
+        self.ui.cmbEntrada.hide()
+        self.ui.cmbSalida.hide()
+        self.ui.cmbOpcionesPreprocesado.hide()
+        self.ui.botonAplicarPreprocesado.hide()
+               
+        self._df = None
+        self.dfProcesado = None
+        self.dataFrameTest = None
+        self.dataFrameTrain = None
+        self.tamDfProc = None
+        self.tamDf = None
+        # Columnas seleccionadas para entrada y salida
+        self.columnasEntrada = None
+        self.columnaSalida = None
+
+        self.columnasEntradaGraficada = None
+        self.columnaSalidaGraficada = None
 
 
     def configurarInterfaz(self):
@@ -164,10 +186,7 @@ class MainWindowCtrl(QMainWindow):
 
     def conectarSenalesPreproceso(self):
         """Conectar señales de los botones y widgets"""
-        #PAGINA INICIAL - CON ANIMACIONES
-        self.ui.btnInicialCrearModelo.clicked.connect(self.irACrearModelo)
-        self.ui.btnInicialCargarModelo.clicked.connect(self.cargarModeloInicio)
-
+  
         self.ui.btnInsertarArchivo.clicked.connect(self.abrirExplorador)
         self.ui.botonDividirTest.clicked.connect(self.pipelineModelo)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
@@ -182,11 +201,6 @@ class MainWindowCtrl(QMainWindow):
 
         #Poner valores de predicción
         self.ui.btnAplicarPrediccion.clicked.connect(self.pipelinePrediccion)
-
-
-    def irACrearModelo(self):
-        """Ir a la pestaña de preprocesado con animación"""
-        self.transicion.cambiarPaginaConAnimacion(1)
 
 
 
@@ -375,7 +389,7 @@ class MainWindowCtrl(QMainWindow):
 
     def aplicarPreprocesado(self):
         """Aplica la operación de preprocesamiento seleccionada"""
-        if self.ui.cmbOpcionesPreprocesado.currentText() == "Seleccione un método...":
+        if self.ui.cmbOpcionesPreprocesado.currentText() == "Seleccione un método para preprocesado":
             return
 
         if self.df is None:
@@ -831,7 +845,7 @@ class MainWindowCtrl(QMainWindow):
     def pipelineModelo(self):
         """Pipeline que sirve para el proceso completo de representar la gráfica tras su procesado"""
         self.procesoDataSplit()
-        self.ui.conjuntoTabs.setCurrentIndex(2)
+        self.ui.conjuntoTabs.setCurrentIndex(1)
         self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
         # CAMBIO IMPORTANTE: Se formatea la lista de columnas para la barra de estado.
@@ -849,22 +863,21 @@ class MainWindowCtrl(QMainWindow):
             self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_:.4f} + {self.modelo.coef_[0]:.4f}*x")
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
+            self.ui.textDescribirModelo.clear()
             self.ui.textDescribirModelo.show()
             self.ui.btnAplicarPrediccion.show()
             # CAMBIO IMPORTANTE: Se formatea la lista de columnas para mostrarla en la etiqueta.
             self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
             self.ui.labelEntradaActual.show()
+            self.ui.spinBoxEntrada.show()
+            self.ui.labelPrediccion.hide()
 
 
-
-    def cargarModeloInicio(self):
-        """Opción si quieres ir desde el principio a cargar una gráfica"""
-        self.transicion.cambiarPaginaConAnimacion(2)
-        self.cargarModelo()
 
 
     def cargarModelo(self):
         """Método usado para cargar modelos previamente guardados en formato .plk"""
+        
         ruta, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Seleccionar modelo",
@@ -923,6 +936,8 @@ class MainWindowCtrl(QMainWindow):
             self.ui.lineRutaCargar.setText(ruta)
             # Mensaje de éxito
             msj.crearInformacion(self, "Éxito", f"Modelo cargado correctamente:\n{ruta}")
+            self.ui.tableViewDataFrame.setModel(None)
+            self.resetearPaginaPreprocesado()
 
         except (pk.PickleError, EOFError):
             msj.crearAdvertencia(self, "Error de lectura", "El archivo no es un modelo válido o está dañado.")
@@ -930,6 +945,8 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", "No se encontró el archivo especificado.")
         except Exception as e:
             msj.crearAdvertencia(self, "Error inesperado", f"Ocurrió un error: {e}")
+
+        
 
 #=====================MÉTODOS DE PREDICCIÓN========================#
 
