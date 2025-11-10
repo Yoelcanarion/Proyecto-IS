@@ -35,6 +35,11 @@ class MainWindowCtrl(QMainWindow):
     Controlador principal de la ventana de la aplicación.
     Gestiona la interfaz gráfica, la carga de datos, selección de columnas,
     preprocesamiento y división de datos.
+    
+    OPTIMIZACIONES IMPLEMENTADAS:
+    - Uso de PandasModelConColor optimizado con caché precalculado
+    - Acceso directo a arrays NumPy para mejor rendimiento
+    - Reducción de operaciones repetitivas en renderizado de tablas
     """
     def __init__(self):
         """
@@ -119,18 +124,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.cmbOpcionesPreprocesado.hide()
         self.ui.botonAplicarPreprocesado.hide()
                
-        self._df = None
-        self.dfProcesado = None
-        self.dataFrameTest = None
-        self.dataFrameTrain = None
-        self.tamDfProc = None
-        self.tamDf = None
-        # Columnas seleccionadas para entrada y salida
-        self.columnasEntrada = None
-        self.columnaSalida = None
 
-        self.columnasEntradaGraficada = None
-        self.columnaSalidaGraficada = None
 
 
     def configurarInterfaz(self):
@@ -311,25 +305,36 @@ class MainWindowCtrl(QMainWindow):
                 "Debe seleccionar una columna para la entrada y la salida.")
 
 
-    #MODIFICADO PARA METER MULTIVARIABLES
     def marcarColumnasSeleccionadas(self, dfEntr):
+        """
+        Marca visualmente las columnas seleccionadas en la tabla.
+        OPTIMIZADO: Usa PandasModelConColor con caché precalculado para mejor rendimiento.
+        
+        Args:
+            dfEntr: DataFrame a mostrar con las columnas marcadas
+        """
         if self.df is None or self.columnasEntrada is None or self.columnaSalida is None:
             return
 
-        # CAMBIO IMPORTANTE: El código original ya manejaba correctamente una lista aquí, por lo que no se necesitan cambios.
-        # Se mantiene la lógica para asegurar que 'columnas_entrada' sea siempre una lista.
+        # Asegurar que columnasEntrada sea una lista
         if isinstance(self.columnasEntrada, str):
             columnas_entrada = [self.columnasEntrada]
         else:
             columnas_entrada = self.columnasEntrada
 
-        model = PandasModelConColor(dfEntr, columna_verde=columnas_entrada,
-                                    columna_roja=self.columnaSalida, tachar_nan=True)
+        # OPTIMIZACIÓN: Usar el modelo optimizado con caché precalculado
+        # Esto mejora significativamente el rendimiento en DataFrames grandes
+        model = PandasModelConColor(
+            dfEntr, 
+            columna_verde=columnas_entrada,
+            columna_roja=self.columnaSalida, 
+            tachar_nan=True
+        )
+        
         self.ui.tableViewDataFrame.setModel(model)
         self.ui.tableViewDataFrame.resizeColumnsToContents()
 
         # Mostrar todas las columnas de entrada
-        # CAMBIO IMPORTANTE: El código original ya formateaba la lista correctamente. No se necesitan cambios.
         if isinstance(columnas_entrada, list):
             entradas_str = ", ".join(columnas_entrada)
         else:
@@ -339,11 +344,9 @@ class MainWindowCtrl(QMainWindow):
 
     def actualizarColumnasSeleccionadas(self):
         if self.ui.conjuntoTabs.currentIndex() == 1 and self.columnasEntrada is not None and self.columnaSalida is not None:
-            # CAMBIO IMPORTANTE: Se formatea la lista de columnas de entrada para mostrarla correctamente en la barra de estado.
             entradas_str = ", ".join(self.columnasEntrada)
             self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalida}")
         if self.ui.conjuntoTabs.currentIndex() == 2 and self.columnasEntradaGraficada is not None and self.columnaSalidaGraficada is not None:
-            # CAMBIO IMPORTANTE: Se formatea la lista de columnas de entrada (para la gráfica) para mostrarla en la barra de estado.
             entradas_str = ", ".join(self.columnasEntradaGraficada)
             self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
 
@@ -362,7 +365,6 @@ class MainWindowCtrl(QMainWindow):
         Returns:
             DataFrame con valores NaN rellenados en las columnas seleccionadas
         """
-        # CAMBIO IMPORTANTE: La lógica original ya era compatible con 'columnasEntrada' como lista. No se requieren cambios.
         if isinstance(self.columnasEntrada, str):
             columnas_entrada = [self.columnasEntrada]
         else:
@@ -388,7 +390,10 @@ class MainWindowCtrl(QMainWindow):
 
 
     def aplicarPreprocesado(self):
-        """Aplica la operación de preprocesamiento seleccionada"""
+        """
+        Aplica la operación de preprocesamiento seleccionada.
+        OPTIMIZADO: Usa el modelo optimizado para mostrar los resultados.
+        """
         if self.ui.cmbOpcionesPreprocesado.currentText() == "Seleccione un método para preprocesado":
             return
 
@@ -402,7 +407,6 @@ class MainWindowCtrl(QMainWindow):
                 "Debe seleccionar las columnas de entrada y salida primero")
             return
 
-        # CAMBIO IMPORTANTE: La lógica original ya era compatible con 'columnasEntrada' como lista. No se requieren cambios.
         if isinstance(self.columnasEntrada, str):
             columnas_entrada = [self.columnasEntrada]
         else:
@@ -450,6 +454,8 @@ class MainWindowCtrl(QMainWindow):
                     else:
                         return
 
+            # OPTIMIZACIÓN: Usar cargarTabla que internamente usa el modelo simple
+            # y luego marcar las columnas con el modelo optimizado
             self.cargarTabla(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
             self.tamDfProc = len(self.dfProcesado)
@@ -505,7 +511,6 @@ class MainWindowCtrl(QMainWindow):
             return
 
         # Verificar que no hay nulos en las columnas seleccionadas
-        # CAMBIO IMPORTANTE: Se concatena la lista de columnas de entrada con la de salida para formar la lista de columnas a verificar.
         columnas_importantes = self.columnasEntrada + [self.columnaSalida]
         if self.dfProcesado[columnas_importantes].isnull().values.any() == True:
             msj.crearAdvertencia(self, "Presencia de Nulos",
@@ -552,7 +557,7 @@ class MainWindowCtrl(QMainWindow):
 
     def seleccionarRutaModelo(self):
         """Método que verifica si se añadió una descripción al modelo y también pone una interfaz para guardar el modelo donde el usuario desee"""
-    # Abre un diálogo para elegir la ruta y el nombre del archivo .pkl
+        # Abre un diálogo para elegir la ruta y el nombre del archivo .pkl
         descr  = self.ui.textDescribirModelo.toPlainText()
         if descr =="":
                 msj.crearInformacion(self,"Descripcion sin detalles", "No se ha escrito ninguna descripcion")
@@ -845,7 +850,12 @@ class MainWindowCtrl(QMainWindow):
     def pipelineModelo(self):
         """Pipeline que sirve para el proceso completo de representar la gráfica tras su procesado"""
         self.procesoDataSplit()
-        self.ui.conjuntoTabs.setCurrentIndex(1)
+        
+        # === INICIO DE LA MODIFICACIÓN ===
+        # self.ui.conjuntoTabs.setCurrentIndex(1) # <- Línea original
+        self.transicion.cambiarPagina(1)          # <- Nueva línea con animación
+        # === FIN DE LA MODIFICACIÓN ===
+        
         self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
         # CAMBIO IMPORTANTE: Se formatea la lista de columnas para la barra de estado.

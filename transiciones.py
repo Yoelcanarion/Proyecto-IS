@@ -1,104 +1,94 @@
-
-from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
-from PyQt6.QtWidgets import QGraphicsOpacityEffect
-
+import sys
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QCoreApplication
+from PyQt6.QtWidgets import QStackedWidget, QGraphicsOpacityEffect
 
 class TransicionPaginas:
     """
-    Clase para manejar las transiciones animadas entre páginas usando efectos de fade.
-    
-    Attributes:
-        main_window: Referencia a la ventana principal que contiene el QTabWidget
-        animando (bool): Flag para prevenir múltiples animaciones simultáneas
+    Gestiona una transición de fundido (fade-in/fade-out) para un QStackedWidget.
+
+    Esta clase se inicializa con la ventana principal (que contiene el 
+    QStackedWidget en 'ui.conjuntoTabs') y proporciona un método 
+    `cambiarPagina` para animar el cambio de pestaña.
     """
     
-    def __init__(self, main_window):
+    def __init__(self, main_window, duration=300):
         """
         Inicializa el gestor de transiciones.
-        
+
         Args:
-            main_window: Instancia de la ventana principal (MainWindowCtrl)
+            main_window: La instancia de QMainWindow que contiene el 
+                         QStackedWidget (se espera en main_window.ui.conjuntoTabs).
+            duration (int): Duración de la animación de fundido en milisegundos.
         """
-        self.main_window = main_window
-        self.animando = False
-        self.widget_anterior = None
+        self.stacked_widget = main_window.ui.conjuntoTabs
+        self.duration = duration
         
-    def cambiarPaginaConAnimacion(self, indice_destino):
+        # Guardamos las animaciones como atributos para evitar que 
+        # el recolector de basura las elimine a mitad de ejecución.
+        self.fade_out_anim = None
+        self.fade_in_anim = None
+
+    def _get_or_create_opacity_effect(self, widget):
         """
-        Cambia de página con una animación de desvanecimiento (fade out + fade in).
-        
-        Args:
-            indice_destino (int): Índice de la pestaña de destino
+        Obtiene el QGraphicsOpacityEffect de un widget, o crea uno si no existe.
         """
-        if self.animando:
-            return
-            
-        self.animando = True
-        widget_actual = self.main_window.ui.conjuntoTabs.currentWidget()
-        self.widget_anterior = widget_actual
-        
-        # Crear efecto de opacidad para el fade out
-        efecto = QGraphicsOpacityEffect()
-        widget_actual.setGraphicsEffect(efecto)
-        
-        # Animación de fade out (desvanecimiento)
-        self.anim_out = QPropertyAnimation(efecto, b"opacity")
-        self.anim_out.setDuration(300)  # 300ms de duración
-        self.anim_out.setStartValue(1.0)
-        self.anim_out.setEndValue(0.0)
-        self.anim_out.setEasingCurve(QEasingCurve.Type.InOutCubic)
-        
-        # Cuando termine el fade out, cambiar de página y hacer fade in
-        self.anim_out.finished.connect(lambda: self._completarTransicion(indice_destino))
-        self.anim_out.start()
-    
-    def _completarTransicion(self, indice_destino):
+        effect = widget.graphicsEffect()
+        if isinstance(effect, QGraphicsOpacityEffect):
+            return effect
+        else:
+            new_effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(new_effect)
+            return new_effect
+
+    def cambiarPagina(self, new_index):
         """
-        Completa la transición cambiando de página y aplicando fade in.
-        
-        Args:
-            indice_destino (int): Índice de la pestaña de destino
+        Realiza una transición de fundido a la página (índice) especificada.
         """
-        # Limpiar efecto del widget anterior ANTES de cambiar
-        if self.widget_anterior:
-            self.widget_anterior.setGraphicsEffect(None)
+        current_index = self.stacked_widget.currentIndex()
+        if new_index == current_index:
+            return  # No hacer nada si ya estamos en esa página
+
+        current_widget = self.stacked_widget.widget(current_index)
+        new_widget = self.stacked_widget.widget(new_index)
+
+        # 1. Preparar el widget que entra (totalmente transparente)
+        new_effect = self._get_or_create_opacity_effect(new_widget)
+        new_effect.setOpacity(0.0)
+
+        # 2. Preparar el widget que sale (totalmente opaco)
+        current_effect = self._get_or_create_opacity_effect(current_widget)
+        current_effect.setOpacity(1.0)
+
+        # 3. Crear animación de fundido (fade-out) para el widget actual
+        self.fade_out_anim = QPropertyAnimation(current_effect, b"opacity")
+        self.fade_out_anim.setDuration(self.duration)
+        self.fade_out_anim.setStartValue(1.0)
+        self.fade_out_anim.setEndValue(0.0)
+        self.fade_out_anim.setEasingCurve(QEasingCurve.Type.InQuad)
+
+        # 4. Crear animación de aparición (fade-in) para el nuevo widget
+        self.fade_in_anim = QPropertyAnimation(new_effect, b"opacity")
+        self.fade_in_anim.setDuration(self.duration)
+        self.fade_in_anim.setStartValue(0.0)
+        self.fade_in_anim.setEndValue(1.0)
+        self.fade_in_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        # 5. Conectar las animaciones:
         
-        # Cambiar a la nueva página
-        self.main_window.ui.conjuntoTabs.setCurrentIndex(indice_destino)
-        widget_nuevo = self.main_window.ui.conjuntoTabs.currentWidget()
-        
-        # Crear efecto de opacidad para el fade in
-        efecto = QGraphicsOpacityEffect()
-        widget_nuevo.setGraphicsEffect(efecto)
-        
-        # Animación de fade in (aparición)
-        self.anim_in = QPropertyAnimation(efecto, b"opacity")
-        self.anim_in.setDuration(300)  # 300ms de duración
-        self.anim_in.setStartValue(0.0)
-        self.anim_in.setEndValue(1.0)
-        self.anim_in.setEasingCurve(QEasingCurve.Type.InOutCubic)
-        
-        # Al terminar, limpiar el efecto y permitir nuevas animaciones
-        self.anim_in.finished.connect(self._limpiarEfectos)
-        self.anim_in.start()
-    
-    def _limpiarEfectos(self):
-        """
-        Limpia los efectos gráficos aplicados y habilita nuevas animaciones.
-        """
-        # Limpiar efecto del widget actual
-        widget = self.main_window.ui.conjuntoTabs.currentWidget()
-        widget.setGraphicsEffect(None)
-        
-        # Limpiar efecto del widget anterior por si acaso
-        if self.widget_anterior:
-            self.widget_anterior.setGraphicsEffect(None)
-            self.widget_anterior = None
-        
-        # Limpiar TODOS los widgets para asegurar que no quede ningún efecto
-        for i in range(self.main_window.ui.conjuntoTabs.count()):
-            w = self.main_window.ui.conjuntoTabs.widget(i)
-            if w and w.graphicsEffect() is not None:
-                w.setGraphicsEffect(None)
-        
-        self.animando = False
+        #    Cuando el fade-out termine, cambia el índice y empieza el fade-in.
+        self.fade_out_anim.finished.connect(lambda: (
+            self.stacked_widget.setCurrentIndex(new_index),
+            self.fade_in_anim.start()
+        ))
+
+        # ===================================================================
+        # LÍNEA NUEVA: Esta es la corrección
+        # ===================================================================
+        # Cuando la animación de ENTRADA (fade_in) termine, restaura la 
+        # opacidad del widget que SALIÓ (current_effect) a 1.0.
+        # Esto ocurre mientras la página 1 está oculta, así que no se ve.
+        self.fade_in_anim.finished.connect(lambda: current_effect.setOpacity(1.0))
+        # ===================================================================
+
+        # 6. Iniciar la secuencia
+        self.fade_out_anim.start()
