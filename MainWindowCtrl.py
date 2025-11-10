@@ -118,19 +118,6 @@ class MainWindowCtrl(QMainWindow):
         self.ui.cmbSalida.hide()
         self.ui.cmbOpcionesPreprocesado.hide()
         self.ui.botonAplicarPreprocesado.hide()
-               
-        self._df = None
-        self.dfProcesado = None
-        self.dataFrameTest = None
-        self.dataFrameTrain = None
-        self.tamDfProc = None
-        self.tamDf = None
-        # Columnas seleccionadas para entrada y salida
-        self.columnasEntrada = None
-        self.columnaSalida = None
-
-        self.columnasEntradaGraficada = None
-        self.columnaSalidaGraficada = None
 
 
     def configurarInterfaz(self):
