@@ -1,53 +1,55 @@
-# Nombre del flujo de trabajo (lo verás en GitHub)
 name: Pruebas de Python (CI)
 
-# 1. Cuándo debe ejecutarse
 on:
   push:
-    branches: [ main, dev ]  # Se ejecuta al hacer push a 'main' o 'dev'
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main ]       # Se ejecuta al abrir un Pull Request a 'main'
+    branches: [ main ]
 
-# 2. Qué trabajos debe hacer
 jobs:
-  # Definimos un solo trabajo llamado "test"
   test:
-    # 3. En qué sistema operativo debe correr
-    runs-on: windows-latest  # Usamos un servidor Linux (es el estándar)
+    # 🔹 Ejecuta en Windows, Linux y macOS
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    # 4. Los Pasos (Instrucciones)
+      # 1️⃣ Descargar el código del repositorio
+      - name: 1. Descargar el código
+        uses: actions/checkout@v4
 
-    # Paso A: Descarga tu código del repositorio al servidor
-    - name: 1. Descargar el código
-      uses: actions/checkout@v4
+      # 2️⃣ Configurar Miniconda con Mambaforge
+      - name: 2. Configurar Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml     # crea el entorno desde tu archivo
+          activate-environment: IS_limpio       # nombre del entorno definido en el .yml
+          python-version: 3.11
+          miniforge-variant: Mambaforge         # usa Mambaforge (más estable)
+          use-mamba: true                       # usa Mamba para resolver más rápido
+          auto-activate-base: false
 
-    # Paso B: Configura Miniconda (Conda) en el servidor
-    - name: 2. Configurar Conda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-activate-base: false
-        python-version: 3.11 # Coincide con tu entorno
+      # 3️⃣ Instalar dependencias del sistema (solo en Linux, para PyQt / GUI)
+      - name: 3. Instalar dependencias de PyQt (solo Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 xvfb
 
-    # Paso C: Crea el entorno usando tu archivo 'environment.yml'
-    # Esto instala pandas, pyqt, pytest-qt, etc.
-    - name: 3. Crear entorno desde environment.yml
-      shell: bash -l {0}
-      run: |
-        conda env create -f environment.yml
-        
-    # Paso D: PASO CLAVE para PyQt en Linux
-    # Instala las librerías gráficas que PyQt necesita (aunque no haya pantalla)
-    # y un "monitor virtual" (xvfb).
-    - name: 4. Instalar dependencias de sistema para PyQt
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 xvfb
-        
-    # Paso E: ¡Ejecuta tus pruebas!
-    # Usamos 'xvfb-run' para darle un "monitor virtual" a pytest-qt
-    - name: 5. Ejecutar Pytest
-      shell: bash -l {0}
-      run: |
-        conda activate IS_limpio # Activa el entorno creado del .yml
-        xvfb-run -a pytest -v
+      # 4️⃣ Verificar entorno
+      - name: 4. Verificar entorno
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+
+      # 5️⃣ Ejecutar los tests
+      - name: 5. Ejecutar pruebas
+        shell: bash -l {0}
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            xvfb-run -a pytest -v
+          else
+            pytest -v
+          fi
