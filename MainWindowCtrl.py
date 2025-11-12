@@ -992,7 +992,7 @@ class MainWindowCtrl(QMainWindow):
         self.plotPrediccion()
         
         # Limpiar datos de entrada para la próxima predicción
-        self.datosEntrada.clear()
+        #self.datosEntrada.clear() CAMBIAR ESTO
         # Resetear el label para la primera columna
         self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
 
