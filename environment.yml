@@ -1,4 +1,4 @@
-﻿name: IS
+name: IS
 channels:
   - defaults
 dependencies:
@@ -19,7 +19,6 @@ dependencies:
   - kiwisolver=1.4.8
   - gstreamer=1.24.11=h233a61a_0
   - mkl_fft=1.3.10
-  - _openmp_mutex=4.5=5_vcomp_kmp_intel
   - contourpy=1.3.1
   - bottleneck=1.4.2
   - libdeflate=1.22
