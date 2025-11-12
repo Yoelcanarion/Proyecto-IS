@@ -1,0 +1,53 @@
+# Nombre del flujo de trabajo (lo verás en GitHub)
+name: Pruebas de Python (CI)
+
+# 1. Cuándo debe ejecutarse
+on:
+  push:
+    branches: [ main, dev ]  # Se ejecuta al hacer push a 'main' o 'dev'
+  pull_request:
+    branches: [ main ]       # Se ejecuta al abrir un Pull Request a 'main'
+
+# 2. Qué trabajos debe hacer
+jobs:
+  # Definimos un solo trabajo llamado "test"
+  test:
+    # 3. En qué sistema operativo debe correr
+    runs-on: ubuntu-latest  # Usamos un servidor Linux (es el estándar)
+
+    steps:
+    # 4. Los Pasos (Instrucciones)
+
+    # Paso A: Descarga tu código del repositorio al servidor
+    - name: 1. Descargar el código
+      uses: actions/checkout@v4
+
+    # Paso B: Configura Miniconda (Conda) en el servidor
+    - name: 2. Configurar Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-activate-base: false
+        python-version: 3.11 # Coincide con tu entorno
+
+    # Paso C: Crea el entorno usando tu archivo 'environment.yml'
+    # Esto instala pandas, pyqt, pytest-qt, etc.
+    - name: 3. Crear entorno desde environment.yml
+      shell: bash -l {0}
+      run: |
+        conda env create -f environment.yml
+        
+    # Paso D: PASO CLAVE para PyQt en Linux
+    # Instala las librerías gráficas que PyQt necesita (aunque no haya pantalla)
+    # y un "monitor virtual" (xvfb).
+    - name: 4. Instalar dependencias de sistema para PyQt
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 xvfb
+        
+    # Paso E: ¡Ejecuta tus pruebas!
+    # Usamos 'xvfb-run' para darle un "monitor virtual" a pytest-qt
+    - name: 5. Ejecutar Pytest
+      shell: bash -l {0}
+      run: |
+        conda activate IS_limpio # Activa el entorno creado del .yml
+        xvfb-run -a pytest -v
