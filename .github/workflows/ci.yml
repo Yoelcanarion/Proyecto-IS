@@ -8,7 +8,6 @@ on:
 
 jobs:
   test:
-    # 🔹 Ejecuta en Windows, Linux y macOS
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -19,18 +18,18 @@ jobs:
       - name: 1. Descargar el código
         uses: actions/checkout@v4
 
-      # 2️⃣ Configurar Miniconda con Mambaforge
+      # 2️⃣ Configurar Conda usando setup-miniconda v2
       - name: 2. Configurar Conda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v2
         with:
           environment-file: environment.yml     # crea el entorno desde tu archivo
           activate-environment: IS_limpio       # nombre del entorno definido en el .yml
           python-version: 3.11
-          miniforge-variant: Mambaforge         # usa Mambaforge (más estable)
-          use-mamba: true                       # usa Mamba para resolver más rápido
+          miniforge-variant: Mambaforge         # usa Mambaforge
+          use-mamba: true                       # usa Mamba para resolver dependencias
           auto-activate-base: false
 
-      # 3️⃣ Instalar dependencias del sistema (solo en Linux, para PyQt / GUI)
+      # 3️⃣ Instalar dependencias de sistema (solo Linux, para PyQt / GUI)
       - name: 3. Instalar dependencias de PyQt (solo Linux)
         if: runner.os == 'Linux'
         run: |
