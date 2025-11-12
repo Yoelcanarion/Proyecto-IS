@@ -976,6 +976,9 @@ class MainWindowCtrl(QMainWindow):
         if self.modelo is None:
             msj.crearAdvertencia(self, "Error de datos", "No hay modelo disponible para predicción")
             return
+        
+        if len(self.datosEntrada) == len(self.columnasEntradaGraficada):
+            self.datosEntrada.clear()
 
         self.actualizarDatosPrediccion()
         
