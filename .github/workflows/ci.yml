@@ -13,7 +13,7 @@ jobs:
   # Definimos un solo trabajo llamado "test"
   test:
     # 3. En qué sistema operativo debe correr
-    runs-on: ubuntu-latest  # Usamos un servidor Linux (es el estándar)
+    runs-on: windows-latest  # Usamos un servidor Linux (es el estándar)
 
     steps:
     # 4. Los Pasos (Instrucciones)
