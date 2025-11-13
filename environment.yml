@@ -1,6 +1,7 @@
 name: IS
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - pandas=2.3.3=py311ha5e6156_0
   - numpy=2.3.1
