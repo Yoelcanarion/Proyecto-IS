@@ -36,8 +36,4 @@ jobs:
       - name: 5. Ejecutar pruebas
         shell: bash -l {0}
         run: |
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            xvfb-run -a pytest -v
-          else
             pytest -v
-          fi
