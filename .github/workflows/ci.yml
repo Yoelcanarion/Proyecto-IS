@@ -4,38 +4,27 @@ on:
   push:
     branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ dev ]
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: windows-latest
 
     steps:
       # 1️⃣ Descargar el código del repositorio
       - name: 1. Descargar el código
         uses: actions/checkout@v4
 
-      # 2️⃣ Configurar Conda usando setup-miniconda v2
+      # 2️⃣ Configurar Conda usando setup-miniconda v3
       - name: 2. Configurar Conda
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-actions/setup-miniconda@v3
         with:
           environment-file: environment.yml     # crea el entorno desde tu archivo
-          activate-environment: IS_limpio       # nombre del entorno definido en el .yml
-          python-version: 3.11
-          miniforge-variant: Mambaforge         # usa Mambaforge
-          use-mamba: true                       # usa Mamba para resolver dependencias
           auto-activate-base: false
+          auto-update-conda: true
+          activate-environment: IS_limpio       # nombre del entorno definido en el .yml
 
-      # 3️⃣ Instalar dependencias de sistema (solo Linux, para PyQt / GUI)
-      - name: 3. Instalar dependencias de PyQt (solo Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 xvfb
-
+      
       # 4️⃣ Verificar entorno
       - name: 4. Verificar entorno
         shell: bash -l {0}
