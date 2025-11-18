@@ -25,6 +25,7 @@ from UI.transiciones import TransicionPaginas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from Backend import PreprocesamientoDatos as PrepDat
+from Backend import ProcesadoDatos as ProcDat
 
 #Globales
 mensajeDefectoCmb = "--- Seleccione una columna---"
@@ -193,7 +194,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.botonDividirTest.clicked.connect(self.pipelineModelo)
         self.ui.botonAplicarPreprocesado.clicked.connect(self.aplicarPreprocesado)
         self.ui.sliderProporcionTest.valueChanged.connect(self.actualizarLblValSlider)
-        self.ui.numeroSliderTest.valueChanged.connect(self.actualizarPorcentajeSpin)
+        self.ui.numeroSliderTest.valueChanged.connect(self._actualizarPorcentajeSpin)
         #cargar modelo
         self.ui.btnCargarModelo.clicked.connect(self.cargarModelo)
         self.ui.btnGuardarModelo.clicked.connect(self.seleccionarRutaModelo)
@@ -430,7 +431,7 @@ class MainWindowCtrl(QMainWindow):
 
 
     # ==================== MÉTODOS DEL DATASPLIT ====================
-    def actualizarLblValSlider(self):
+    def actualizarLblValSlider(self):   #TESTINFO: NO TESTEAR ESTE
         value = self.ui.sliderProporcionTest.value()
         self.ui.numeroSliderTest.setValue(value)
         longitud = self.tamDfProc
@@ -438,63 +439,39 @@ class MainWindowCtrl(QMainWindow):
         train = 100 - test
         self.ui.lblDatosDivision.setText(f"Test: {test}% --- Filas: {round(longitud*test/100)}\nTrain: {train}% --- Filas: {round(longitud*train/100)}")
 
-    def _actualizarPorcentajeTest(self):
+    def _actualizarPorcentajeTest(self):        #TESTINFO: NO TESTEAR ESTE
         """Actualiza la proporción de test según el valor del slider"""
         value = self.ui.sliderProporcionTest.value()
         self.proporcionDeTest = float(value) / 100
 
-    def actualizarPorcentajeSpin(self):
+    def _actualizarPorcentajeSpin(self):        #TESTINFO: NO TESTEAR ESTE
         """Actualiza la proporción de test del slider el valor del spin"""
         value = self.ui.numeroSliderTest.value()
         self.ui.sliderProporcionTest.setValue(value)
         self.proporcionDeTest = float(value) / 100
 
-
-    def _ejecutarDatasplit(self, tamañoTest):
-        """Realiza el datasplit en dataFrameTrain y dataFrameTest"""
-        if self.dfProcesado is None:
-            self.dataFrameTrain, self.dataFrameTest = train_test_split(self.df, test_size=tamañoTest)
-            return
-
-        # Verificar que no hay nulos en las columnas seleccionadas
-        columnas_importantes = self.columnasEntrada + [self.columnaSalida]
-        if self.dfProcesado[columnas_importantes].isnull().values.any() == True:
-            msj.crearAdvertencia(self, "Presencia de Nulos",
-                "Para continuar al datasplit no puede tener nulos en las columnas de entrada o salida")
-            return
-
-        self.dataFrameTrain, self.dataFrameTest = train_test_split(self.dfProcesado, test_size=tamañoTest)
-
-
-    def _mostrarResultadosSplit(self):
-        """Calcula las líneas de cada parte y su porcentaje real y lo muestra"""
-        if self.dataFrameTrain is None or self.dataFrameTest is None:
-            return
-
-        # Líneas y porcentaje de líneas del entrenamiento
-        porcentajeTrain = (len(self.dataFrameTrain) / self.tamDfProc) * 100
-        mensajeTrain = f"{len(self.dataFrameTrain)} Líneas de Entrenamiento --- {porcentajeTrain:.2f}% de los datos"
-
-        # Líneas y porcentaje de líneas del test
-        porcentajeTest = 100 - porcentajeTrain
-        mensajeTest = f"{len(self.dataFrameTest)} Líneas de Test --- {porcentajeTest:.2f}% de los datos"
-
-        # Mostrar en un mensaje informativo
-        msj.crearInformacion(self, "División Completada",
-            f"{mensajeTrain}\n{mensajeTest}")
-
-
-    def procesoDataSplit(self):
+    def procesoDataSplit(self): #TESTINFO: NO TESTEAR ESTE
         """Realiza el proceso de datasplit y muestra los resultados"""
-        # Actualizar la proporción según el slider
-        self._actualizarPorcentajeTest()
+        try:
+            # Actualizar la proporción según el slider
+            self._actualizarPorcentajeTest()
 
-        # Ejecutar el datasplit
-        self._ejecutarDatasplit(self.proporcionDeTest)
+            # Ejecutar el datasplit
+            self.dataFrameTrain, self.dataFrameTest = ProcDat._ejecutarDatasplit(self.dfProcesado, self.columnasEntrada, self.columnaSalida, self.proporcionDeTest)
 
-        # Mostrar los resultados si el split fue exitoso
-        if self.dataFrameTrain is not None and self.dataFrameTest is not None:
-            self._mostrarResultadosSplit()
+            # Mostrar los resultados si el split fue exitoso
+            if self.dataFrameTrain is not None and self.dataFrameTest is not None:
+                mensajeTrain, mensajeTest = ProcDat._mostrarResultadosSplit(self.dataFrameTrain, self.dataFrameTest, self.tamDfProc)
+                msj.crearInformacion(self, "División Completada",
+                            f"{mensajeTrain}\n{mensajeTest}")
+
+        except TypeError as mensaje:
+            msj.crearAdvertencia(self, "Presencia de Nulos", str(mensaje))
+            return
+        
+        except Exception as e:
+            msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
+
 
 
 
@@ -559,34 +536,6 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
 
-    def crearAjustarModelo(self):
-        """Método usado para crear, ajustar, testear y obtener estadísticas como R**2 y ECM a partir de los datos procesados anteriormente"""
-        if self.dataFrameTrain is None or self.dataFrameTest is None:
-            msj.crearAdvertencia(self, "Error de datos", "No hay datos de entrenamiento o test disponibles")
-            return
-
-        if self.columnasEntradaGraficada is None or self.columnaSalidaGraficada is None:
-            msj.crearAdvertencia(self, "Error de columnas", "No se han seleccionado las columnas de entrada y salida")
-            return
-        # CAMBIO IMPORTANTE: Se selecciona el subconjunto de columnas de entrada directamente usando la lista.
-        # El uso de corchetes simples `[]` es suficiente porque `columnasEntradaGraficada` ya es una lista.
-        #La salida de xTrain y xTest tiene la forma [[col1, col2,...],[col1, col2,...],...], sean las listas internas 
-        # filas de datos ordenadas por su respectiva columna en ese orden (osea que cada lista interna son las coordenadas independientes de un punto del modelo)
-        self.xTrain = self.dataFrameTrain[self.columnasEntradaGraficada]        
-        self.yTrain = self.dataFrameTrain[self.columnaSalidaGraficada]
-        self.xTest = self.dataFrameTest[self.columnasEntradaGraficada]
-        self.yTest = self.dataFrameTest[self.columnaSalidaGraficada]
-
-        self.modelo = LinearRegression().fit(self.xTrain, self.yTrain)
-
-        yTrainPred = self.modelo.predict(self.xTrain)  #Tiene la forma [pred1, pred2, ...], siendo pred la predicción de cada muestra de xTrain (con muestras me refiero a las listas internas)
-        yTestPred = self.modelo.predict(self.xTest)
-
-        self.r2Train = r2_score(self.yTrain, yTrainPred)
-        self.r2Test = r2_score(self.yTest, yTestPred)
-
-        self.ecmTrain = mean_squared_error(self.yTrain, yTrainPred)
-        self.ecmTest = mean_squared_error(self.yTest, yTestPred)
 
 
     def plotGrafica(self):   #CAMBIOS NECESARIOS
@@ -804,29 +753,44 @@ class MainWindowCtrl(QMainWindow):
         
         self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
+
         # CAMBIO IMPORTANTE: Se formatea la lista de columnas para la barra de estado.
         entradas_str = ", ".join(self.columnasEntradaGraficada)
         self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
+
         if self.ui.placeholderGrafica.layout() is not None or self.ui.placeholderCorrelacion.layout() is not None:
             self.limpiarGrafica()
-        self.crearAjustarModelo()       
-        self.plotGrafica()
-        self.plotCorrelacion()
-        self.ui.placeholderCorrelacion.show()
-        # Solo actualizar UI si todo salió bien
-        if self.r2Train is not None and self.r2Test is not None:
-            self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
-            self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_:.4f} + {self.modelo.coef_[0]:.4f}*x")
-            self.ui.propiedadesModelo.show()
-            self.ui.btnGuardarModelo.show()
-            self.ui.textDescribirModelo.clear()
-            self.ui.textDescribirModelo.show()
-            self.ui.btnAplicarPrediccion.show()
-            # CAMBIO IMPORTANTE: Se formatea la lista de columnas para mostrarla en la etiqueta.
-            self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
-            self.ui.labelEntradaActual.show()
-            self.ui.spinBoxEntrada.show()
-            self.ui.labelPrediccion.hide()
+
+        try: 
+            self.xTrain, self.yTrain, self.xTest, self.yTest, self.modelo, self.r2Train, self.r2Test, self.ecmTrain, self.ecmTest = ProcDat.crearAjustarModelo(self.dataFrameTrain, self.dataFrameTest,self.columnasEntradaGraficada, self.columnaSalidaGraficada)       
+            
+            self.plotGrafica()
+            self.plotCorrelacion()
+
+            self.ui.placeholderCorrelacion.show()
+
+            # Solo actualizar UI si todo salió bien
+            if self.r2Train is not None and self.r2Test is not None and self.ecmTrain is not None and self.ecmTest is not None:
+                self.ui.labelR2Test.setText(f"R**2 Entrenamiento: {self.r2Train:.4f}\nR**2 Test: {self.r2Test:.4f}\n\nECM Entrenamiento: {self.ecmTrain:.4f}\nECM Test: {self.ecmTest:.4f}")
+                self.ui.labelFormula.setText(f"Fórmula Modelo: y = {self.modelo.intercept_:.4f} + {self.modelo.coef_[0]:.4f}*x")
+                self.ui.propiedadesModelo.show()
+                self.ui.btnGuardarModelo.show()
+                self.ui.textDescribirModelo.clear()
+                self.ui.textDescribirModelo.show()
+                self.ui.btnAplicarPrediccion.show()
+                # CAMBIO IMPORTANTE: Se formatea la lista de columnas para mostrarla en la etiqueta.
+                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
+                self.ui.labelEntradaActual.show()
+                self.ui.spinBoxEntrada.show()
+                self.ui.labelPrediccion.hide()
+
+
+        except TypeError as mensaje:
+            msj.crearAdvertencia(self, "Error de datos", str(mensaje))
+            return
+        
+        except Exception as e:
+            msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
 
 
 
