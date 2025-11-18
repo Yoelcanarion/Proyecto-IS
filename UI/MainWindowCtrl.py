@@ -12,19 +12,19 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QCoreApplication, QPropertyAnimation, QEasingCurve
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
-from MainWindowUI import Ui_MainWindow
-import ImportacionDatos as impd
-import GestionDatos as gd
+from UI.MainWindowUI import Ui_MainWindow
+import Backend.ImportacionDatos as impd
+import Backend.GestionDatos as gd
 import pickle as pk
-from UtilidadesInterfaz import PandasModel as mp
-from UtilidadesInterfaz import Mensajes as msj
-from VentanaCargaCtrl import VentanaCargaCtrl
-from UtilidadesInterfaz import PandasModelConColor
-from UtilidadesInterfaz import CheckableComboBox
+from UI.UtilidadesInterfaz import PandasModel as mp
+from UI.UtilidadesInterfaz import Mensajes as msj
+from UI.UtilidadesInterfaz import PandasModelConColor
+from UI.UtilidadesInterfaz import CheckableComboBox
 from PyQt6.QtCore import Qt
-from transiciones import TransicionPaginas
+from UI.transiciones import TransicionPaginas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from Backend import PreprocesamientoDatos as PrepDat
 
 #Globales
 mensajeDefectoCmb = "--- Seleccione una columna---"
@@ -53,9 +53,12 @@ class MainWindowCtrl(QMainWindow):
         self.ui.setupUi(self)
         # Inicializar sistema de transiciones
         self.transicion = TransicionPaginas(self)
+        #sino se lo quito como veais, se puede llamar al  msj normal, sin poner controlador.msj
+        self.msj = msj
         # Configuración inicial
         self.resetearTodo()
         self.configurarInterfaz()
+
 
         # Conectar botón de confirmación
         self.ui.btnConfirmar.clicked.connect(self.confirmarSeleccion)
@@ -123,7 +126,12 @@ class MainWindowCtrl(QMainWindow):
         self.ui.cmbSalida.hide()
         self.ui.cmbOpcionesPreprocesado.hide()
         self.ui.botonAplicarPreprocesado.hide()
-               
+        self.ui.sliderProporcionTest.hide()
+        self.ui.botonDividirTest.hide()
+        self.ui.lblDatosDivision.hide()
+        self.ui.lblDivision.hide()
+        self.ui.numeroSliderTest.hide()
+    
 
 
 
@@ -226,13 +234,11 @@ class MainWindowCtrl(QMainWindow):
                 self.df = df
                 self.cargarTabla(df)
                 self.tamDf = len(df)
+                self.resetearPaginaPreprocesado()
                 # Mostrar botón de seleccionar columnas
                 self.ui.btnConfirmar.show()
                 self.ui.cmbEntrada.show()
                 self.ui.cmbSalida.show()
-                #Para que en el caso de volver a meter un archivo no podamos preprocesarlo sin antes eleccionar las columnas
-                self.ui.cmbOpcionesPreprocesado.hide()
-                self.ui.botonAplicarPreprocesado.hide()
             except ValueError as e:
                 msj.crearAdvertencia(self, "Error inesperado",
                     "Se ha producido un error inesperado al cargar el archivo")
@@ -305,6 +311,10 @@ class MainWindowCtrl(QMainWindow):
                 "Debe seleccionar una columna para la entrada y la salida.")
 
 
+
+
+
+
     def marcarColumnasSeleccionadas(self, dfEntr):
         """
         Marca visualmente las columnas seleccionadas en la tabla.
@@ -353,42 +363,6 @@ class MainWindowCtrl(QMainWindow):
 
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
 
-    def rellenarNanColumnasNumericas(self, df, metodo, valorConstante=None):
-        """
-        Rellena valores NaN en las columnas de entrada y salida seleccionadas.
-
-        Args:
-            df: DataFrame a procesar
-            metodo: 'media', 'mediana' o 'constante'
-            valorConstante: valor a usar si metodo='constante'
-
-        Returns:
-            DataFrame con valores NaN rellenados en las columnas seleccionadas
-        """
-        if isinstance(self.columnasEntrada, str):
-            columnas_entrada = [self.columnasEntrada]
-        else:
-            columnas_entrada = self.columnasEntrada
-
-        # Combinar columnas de entrada y salida
-        columnas_a_procesar = columnas_entrada + [self.columnaSalida]
-
-        for col in columnas_a_procesar:
-            # Verificar que la columna existe y es numérica
-            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                if df[col].isna().any():
-                    if metodo == 'media':
-                        valor = np.nanmean(df[col])
-                        df[col] = df[col].fillna(valor)
-                    elif metodo == 'mediana':
-                        valor = np.nanmedian(df[col].to_numpy())
-                        df[col] = df[col].fillna(valor)
-                    elif metodo == 'constante' and valorConstante is not None:
-                        df[col] = df[col].fillna(valorConstante)
-
-        return df
-
-
     def aplicarPreprocesado(self):
         """
         Aplica la operación de preprocesamiento seleccionada.
@@ -406,68 +380,36 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Sin columnas seleccionadas",
                 "Debe seleccionar las columnas de entrada y salida primero")
             return
-
-        if isinstance(self.columnasEntrada, str):
-            columnas_entrada = [self.columnasEntrada]
-        else:
-            columnas_entrada = self.columnasEntrada
-        columnas_seleccionadas = columnas_entrada + [self.columnaSalida]
-
-        self.dfProcesado = self.df.copy(deep=True)
+        
         opcion = self.ui.cmbOpcionesPreprocesado.currentText()
+        cte = 0
+        if opcion == "Rellenar con un valor constante":
+            cte ,_= QInputDialog.getText(self, "Valor constante", "Introduce el valor constante para rellenar NaN:")
+        
+        try:  
+            self.dfProcesado, mensaje, columnasSeleccionadas = PrepDat.aplicarPreprocesadoCalcular(
+                                                                            columnasEntrada = self.columnasEntrada,
+                                                                            columnaSalida=self.columnaSalida,
+                                                                            df=self.df,
+                                                                            opcion=opcion,
+                                                                            constante= cte)
 
-        try:
-            match opcion:
-                case "Eliminar filas con NaN":
-                    nanAntes = self.dfProcesado[columnas_seleccionadas].isna().sum().sum()
-                    # Eliminar filas que tengan NaN en las columnas seleccionadas
-                    self.dfProcesado.dropna(subset=columnas_seleccionadas,
-                                        inplace=True, ignore_index=True)
-
-                    msj.crearInformacion(self, "Preprocesado Aplicado",
-                        f"Filas eliminadas: {self.tamDf - len(self.dfProcesado)}\n"
-                        f"NaN eliminados: {nanAntes}")
-
-                case "Rellenar con la media (Numpy)":
-                    self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='media')
-                    msj.crearInformacion(self, "Preprocesado Aplicado",
-                        "NaN rellenados con la media en columnas seleccionadas")
-
-                case "Rellenar con la mediana":
-                    self.dfProcesado = self.rellenarNanColumnasNumericas(self.dfProcesado, metodo='mediana')
-                    msj.crearInformacion(self, "Preprocesado Aplicado",
-                        "NaN rellenados con la mediana en columnas seleccionadas")
-
-                case "Rellenar con un valor constante":
-                    valorConstante, ok = QInputDialog.getText(self, "Valor constante",
-                        "Introduce el valor constante para rellenar NaN:")
-
-                    if ok and valorConstante:
-                        valorNumerico = float(valorConstante)
-                        self.dfProcesado = self.rellenarNanColumnasNumericas(
-                            self.dfProcesado,
-                            metodo='constante',
-                            valorConstante=valorNumerico
-                        )
-                        msj.crearInformacion(self, "Preprocesado Aplicado",
-                            f"NaN rellenados con {valorNumerico} en columnas seleccionadas")
-                    else:
-                        return
+            msj.crearInformacion(self, "Preprocesado Aplicado", mensaje)
 
             # OPTIMIZACIÓN: Usar cargarTabla que internamente usa el modelo simple
             # y luego marcar las columnas con el modelo optimizado
             self.cargarTabla(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
             self.tamDfProc = len(self.dfProcesado)
-
+        
             # Mostrar estadísticas del procesamiento
             mensaje = f"Procesamiento completado:\n"
             mensaje += f"Filas: {self.tamDf} → {self.tamDfProc}\n"
-            mensaje += f"NaN en columnas seleccionadas: {self.df[columnas_seleccionadas].isna().sum().sum()} → {self.dfProcesado[columnas_seleccionadas].isna().sum().sum()}"
+            mensaje += f"NaN en columnas seleccionadas: {self.df[columnasSeleccionadas].isna().sum().sum()} → {self.dfProcesado[columnasSeleccionadas].isna().sum().sum()}"
             msj.crearInformacion(self, "Éxito", mensaje)
 
             # Verificar si hay NaN en las columnas de entrada y salida
-            if not self.dfProcesado[columnas_seleccionadas].isnull().values.any():
+            if not self.dfProcesado[columnasSeleccionadas].isnull().values.any():
                 # Mostrar botón de dividir datos
                 self.ui.botonDividirTest.show()
                 self.ui.lblDivision.show()
@@ -481,6 +423,10 @@ class MainWindowCtrl(QMainWindow):
 
         except Exception as e:
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
+
+
+
+    
 
 
     # ==================== MÉTODOS DEL DATASPLIT ====================
@@ -1128,8 +1074,3 @@ class MainWindowCtrl(QMainWindow):
 
 
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    ventana = MainWindowCtrl()
-    ventana.show()
-    sys.exit(app.exec())

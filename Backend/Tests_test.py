@@ -1,5 +1,5 @@
 import pytest as pt
-from MainWindowCtrl import *
+from UI.MainWindowCtrl import *
 from PyQt6.QtGui import QStandardItemModel
 import pandas as pd
 from unittest.mock import MagicMock
