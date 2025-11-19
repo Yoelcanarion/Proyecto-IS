@@ -119,6 +119,7 @@ class MainWindowCtrl(QMainWindow):
         # Limpiar gráfica
         self.limpiarGrafica()
 
+
     def resetearPaginaPreprocesado(self):
         """Resetea los elementos de la página 1"""
         self.ui.tableViewDataFrame.setModel(None)
@@ -133,8 +134,6 @@ class MainWindowCtrl(QMainWindow):
         self.ui.lblDivision.hide()
         self.ui.numeroSliderTest.hide()
     
-
-
 
     def configurarInterfaz(self):
         """Configuración inicial de la interfaz"""
@@ -206,8 +205,6 @@ class MainWindowCtrl(QMainWindow):
         self.ui.btnAplicarPrediccion.clicked.connect(self.pipelinePrediccion)
 
 
-
-
     def abrirExplorador(self):
         """
         Abre un cuadro de diálogo para seleccionar un archivo y carga los datos en la tabla.
@@ -231,11 +228,11 @@ class MainWindowCtrl(QMainWindow):
         if ruta != "":
             self.ui.lineEditRutaArchivo.setText(ruta)
             try:
+                self.resetearPaginaPreprocesado()
                 df = impd.cargarDatos(ruta)
                 self.df = df
                 self.cargarTabla(df)
                 self.tamDf = len(df)
-                self.resetearPaginaPreprocesado()
                 # Mostrar botón de seleccionar columnas
                 self.ui.btnConfirmar.show()
                 self.ui.cmbEntrada.show()
@@ -249,6 +246,13 @@ class MainWindowCtrl(QMainWindow):
         else:
             msj.crearAdvertencia(self, "Ruta no encontrada",
                 "Se debe seleccionar un archivo válido")
+
+
+    def cargarTablaGenerico(self, df):
+        model = mp(df)
+        self.ui.tableViewDataFrame.setModel(model)
+        self.ui.tableViewDataFrame.resizeColumnsToContents()
+        
 
 
     def cargarTabla(self, df):
@@ -284,6 +288,7 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error inesperado",
                 "Se ha producido un error inesperado al crear la tabla")
 
+
     def confirmarSeleccion(self):
         if self.df is None:
             msj.crearAdvertencia(self, "Sin datos", "Primero debe cargar un archivo")
@@ -291,29 +296,45 @@ class MainWindowCtrl(QMainWindow):
 
         entrada = self.ui.cmbEntrada.getCheckedItems()
         salida = self.ui.cmbSalida.currentText()
+        if (salida in entrada):
+            msj.crearAdvertencia(self, "Advertencia", "La salida seleccionada ya se encuentra en una de las entradas")
+            return
+        
         if (len(entrada) >0 and salida != mensajeDefectoCmb):
             msj.crearInformacion(self,"Datos Seleccionados",
                 f"Entrada: {', '.join(str(x) for x in entrada)}\nSalida: {salida}")
-
+            conjuntoAnalisis = entrada+[salida]
             # Marcar columnas en el DataFrame (visualmente podríamos colorearlas)
             # CAMBIO IMPORTANTE: Se guarda la columna de entrada como una lista para futura compatibilidad con selección múltiple.
             self.columnasEntrada =  entrada
             self.columnaSalida = salida
             self.marcarColumnasSeleccionadas(self.df)
-            #Ponemos que se vean despues de seleccionar
-            self.ui.botonDividirTest.hide()
-            self.ui.numeroSliderTest.hide()
-            self.ui.sliderProporcionTest.hide()
-            self.ui.lblDivision.hide()
-            self.ui.cmbOpcionesPreprocesado.show()
-            self.ui.botonAplicarPreprocesado.show()
+            #Comprueba si existe algun nulo entre las columnas seleccionadas
+            if((lambda df, conjuntoAnalisis: any(df[c].isna().any() for c in conjuntoAnalisis))(self.df, conjuntoAnalisis)):
+                #Ponemos que se vean despues de seleccionar
+                self.ui.botonDividirTest.hide()
+                self.ui.numeroSliderTest.hide()
+                self.ui.sliderProporcionTest.hide()
+                self.ui.lblDivision.hide()
+                self.ui.cmbOpcionesPreprocesado.show()
+                self.ui.botonAplicarPreprocesado.show()
+            else:
+                self.ui.botonDividirTest.show()
+                self.ui.numeroSliderTest.show()
+                self.ui.sliderProporcionTest.show()
+                self.ui.lblDivision.show()
+                self.ui.cmbOpcionesPreprocesado.hide()
+                self.ui.botonAplicarPreprocesado.hide()
+                msj.crearInformacion(self,"Informacion", "No se han encontrado nulos en tus columnas seleccionadas, puedes proceder con el data split")
+                
+                self.dfProcesado = self.df[conjuntoAnalisis]
+                self.cargarTablaGenerico(self.dfProcesado)
+                self.marcarColumnasSeleccionadas(self.dfProcesado)
+                self.tamDf = len(self.df)
+                self.tamDfProc = len(self.dfProcesado)
         else:
              msj.crearAdvertencia(self,"Advertencia",
                 "Debe seleccionar una columna para la entrada y la salida.")
-
-
-
-
 
 
     def marcarColumnasSeleccionadas(self, dfEntr):
@@ -361,7 +382,6 @@ class MainWindowCtrl(QMainWindow):
             entradas_str = ", ".join(self.columnasEntradaGraficada)
             self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
 
-
     # ==================== MÉTODOS DE PREPROCESAMIENTO ====================
 
     def aplicarPreprocesado(self):
@@ -396,10 +416,7 @@ class MainWindowCtrl(QMainWindow):
                                                                             constante= cte)
 
             msj.crearInformacion(self, "Preprocesado Aplicado", mensaje)
-
-            # OPTIMIZACIÓN: Usar cargarTabla que internamente usa el modelo simple
-            # y luego marcar las columnas con el modelo optimizado
-            self.cargarTabla(self.dfProcesado)
+            self.cargarTablaGenerico(self.dfProcesado)
             self.marcarColumnasSeleccionadas(self.dfProcesado)
             self.tamDfProc = len(self.dfProcesado)
         
@@ -426,10 +443,6 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
 
 
-
-    
-
-
     # ==================== MÉTODOS DEL DATASPLIT ====================
     def actualizarLblValSlider(self):   #TESTINFO: NO TESTEAR ESTE
         value = self.ui.sliderProporcionTest.value()
@@ -439,16 +452,19 @@ class MainWindowCtrl(QMainWindow):
         train = 100 - test
         self.ui.lblDatosDivision.setText(f"Test: {test}% --- Filas: {round(longitud*test/100)}\nTrain: {train}% --- Filas: {round(longitud*train/100)}")
 
+
     def _actualizarPorcentajeTest(self):        #TESTINFO: NO TESTEAR ESTE
         """Actualiza la proporción de test según el valor del slider"""
         value = self.ui.sliderProporcionTest.value()
         self.proporcionDeTest = float(value) / 100
+
 
     def _actualizarPorcentajeSpin(self):        #TESTINFO: NO TESTEAR ESTE
         """Actualiza la proporción de test del slider el valor del spin"""
         value = self.ui.numeroSliderTest.value()
         self.ui.sliderProporcionTest.setValue(value)
         self.proporcionDeTest = float(value) / 100
+
 
     def procesoDataSplit(self): #TESTINFO: NO TESTEAR ESTE
         """Realiza el proceso de datasplit y muestra los resultados"""
@@ -471,10 +487,6 @@ class MainWindowCtrl(QMainWindow):
         
         except Exception as e:
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
-
-
-
-
 
     #========================MÉTODOS DE REGRESIÓN LINEAL=======================#
 
@@ -534,8 +546,6 @@ class MainWindowCtrl(QMainWindow):
                 msj.crearAdvertencia(self, "Error no previsto al guardar el modelo", str(e))
         else:
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
-
-
 
 
     def plotGrafica(self):   #CAMBIOS NECESARIOS
@@ -724,6 +734,7 @@ class MainWindowCtrl(QMainWindow):
         QCoreApplication.processEvents()
         self.ui.barraProgreso.setVisible(False)
 
+
     def limpiarGrafica(self):
         """Limpia completamente el widget de la gráfica"""
         # Obtener el layout actual
@@ -791,8 +802,6 @@ class MainWindowCtrl(QMainWindow):
         
         except Exception as e:
             msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
-
-
 
 
     def cargarModelo(self):
@@ -866,8 +875,6 @@ class MainWindowCtrl(QMainWindow):
         except Exception as e:
             msj.crearAdvertencia(self, "Error inesperado", f"Ocurrió un error: {e}")
 
-        
-
 #=====================MÉTODOS DE PREDICCIÓN========================#
 
 
@@ -881,6 +888,7 @@ class MainWindowCtrl(QMainWindow):
         nuevaEntrada = self.ui.spinBoxEntrada.value()
         self.datosEntrada.append(nuevaEntrada)
         self.ui.spinBoxEntrada.setValue(0)
+
 
     def pipelinePrediccion(self):
         if self.modelo is None:
@@ -908,7 +916,6 @@ class MainWindowCtrl(QMainWindow):
         #self.datosEntrada.clear() CAMBIAR ESTO
         # Resetear el label para la primera columna
         self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
-
     #Hasta aquí todo bien
 
     def plotPrediccion(self):
@@ -1037,4 +1044,5 @@ class MainWindowCtrl(QMainWindow):
                 canvas.draw()
 
 
-
+if __name__ == "main":
+    pass

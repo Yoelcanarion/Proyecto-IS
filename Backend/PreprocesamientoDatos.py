@@ -45,7 +45,7 @@ def aplicarPreprocesadoCalcular(columnasEntrada, columnaSalida, df, opcion, cons
         except Exception as e:
             raise Exception
 
-        return dfProcesado,  mensaje, columnasSeleccionadas
+        return dfProcesado[columnasSeleccionadas],  mensaje, columnasSeleccionadas
 
 
 
