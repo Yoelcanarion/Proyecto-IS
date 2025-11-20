@@ -2,7 +2,7 @@ name: Ejecucion Automatica de Tests (Conda)
 
 on:
   push:
-    branches: [ "main", "dev" ] # Añadí dev por tu último mensaje
+    branches: [ "main",  "dev" ]
   pull_request:
     branches: [ "main", "dev" ]
   workflow_dispatch:
@@ -16,19 +16,25 @@ jobs:
     - name: Checkout del código
       uses: actions/checkout@v4
 
-    # 2. Instalar Miniconda y crear el entorno
-    # Esta acción lee tu environment.yml e instala todo automáticamente
+    # 2. Instalar dependencias de sistema para interfaz gráfica (QT)
+    # Esto evita el error "Could not load the Qt platform plugin 'xcb'"
+    - name: Instalar librerías gráficas de Linux
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libegl1-mesa xvfb
+
+    # 3. Configurar Conda
     - name: Configurar Conda
       uses: conda-incubator/setup-miniconda@v3
       with:
-        activate-environment: IS # <--- PON AQUÍ EL NOMBRE QUE ESTÁ EN TU ENVIRONMENT.YML
+        activate-environment: IS
         environment-file: environment.yml
-        python-version: 3.10
+        # HE BORRADO LA LÍNEA 'python-version' QUE CAUSABA EL ERROR 3.1
         auto-activate-base: false
 
-    # 3. Ejecutar los tests
-    # IMPORTANTE: 'shell: bash -l {0}' es necesario para activar conda correctamente en Linux
+    # 4. Ejecutar los tests con Pantalla Virtual
+    # Usamos 'xvfb-run' para simular un monitor
     - name: Correr Pruebas con Pytest
       shell: bash -l {0}
       run: |
-        pytest -v
+        xvfb-run pytest -v
