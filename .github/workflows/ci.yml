@@ -18,11 +18,12 @@ jobs:
 
     # 2. Instalar dependencias de sistema para interfaz gráfica (QT)
     # Esto evita el error "Could not load the Qt platform plugin 'xcb'"
-    - name: Instalar librerías gráficas de Linux
+    # 2. Instalar librerías gráficas de Linux
+    - name: Instalar dependencias del sistema para QT
       run: |
         sudo apt-get update
-        sudo apt-get install -y libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libegl1-mesa xvfb
-
+        # CORREGIDO: libegl1-mesa ahora es libegl1
+        sudo apt-get install -y libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libegl1 xvfb
     # 3. Configurar Conda
     - name: Configurar Conda
       uses: conda-incubator/setup-miniconda@v3
