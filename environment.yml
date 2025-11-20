@@ -1,15 +1,15 @@
 name: IS
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
-  - python=3.11.14
+  - python=3.11
   - pandas=2.3.3
   - numpy=2.3.1
-  # Scipy: Nota, verifica esta versión, 1.16.2 parece muy alta/futura para scipy estándar, 
-  # pero la dejo tal cual la pediste. Si falla, cámbiala a 1.11.x o borra la versión.
-  - scipy=1.16.2  
-  - scikit-learn=1.7.2
+  # ELIMINAMOS LAS VERSIONES FIJAS DE ESTOS DOS PARA QUE CONDA ELIJA LAS QUE EXISTEN
+  - scipy 
+  - scikit-learn
+  # El resto sigue igual
   - seaborn=0.13.2
   - pyqt=5.15.11
   - matplotlib
@@ -37,7 +37,7 @@ dependencies:
   - sip=6.10.0
   - tomli=2.3.0
   - pip=25.2
-  # Herramientas de testing necesarias
-  - pytest
-  - pytest-qt
-  - pytest-mock
+  - pip:
+    - pytest
+    - pytest-qt
+    - pytest-mock
