@@ -3,9 +3,9 @@ name: Ejecucion Automatica de Tests
 # ¿Cuándo se ejecuta? Al hacer push o pull request en la rama main (o master)
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "dev" ]
 
 jobs:
   test-runner:
