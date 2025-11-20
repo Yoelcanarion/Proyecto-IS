@@ -55,7 +55,7 @@ def crearAjustarModelo(dataFrameTrain, dataFrameTest, columnasEntradaGraficada, 
         if columnasEntradaGraficada is None or columnaSalidaGraficada is None:
             raise TypeError("Para continuar al datasplit no puede tener nulos en las columnas de entrada o salida")
     
-        xTrain = dataFrameTrain[columnasEntradaGraficada]        
+        xTrain = dataFrameTrain[columnasEntradaGraficada]
         yTrain = dataFrameTrain[columnaSalidaGraficada]
         xTest = dataFrameTest[columnasEntradaGraficada]
         yTest = dataFrameTest[columnaSalidaGraficada]

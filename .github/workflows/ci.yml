@@ -1,39 +1,34 @@
-name: Pruebas de Python (CI)
+name: Ejecucion Automatica de Tests
 
+# ¿Cuándo se ejecuta? Al hacer push o pull request en la rama main (o master)
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main", "master" ]
 
 jobs:
-  test:
-    runs-on: windows-latest
+  test-runner:
+    runs-on: ubuntu-latest # Usamos una máquina Linux virtual
 
     steps:
-      # 1️⃣ Descargar el código del repositorio
-      - name: 1. Descargar el código
-        uses: actions/checkout@v4
+    # 1. Descargar tu código en la máquina virtual
+    - name: Checkout del código
+      uses: actions/checkout@v4
 
-      # 2️⃣ Configurar Conda usando setup-miniconda v3
-      - name: 2. Configurar Conda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          environment-file: environment.yml 
-          auto-update-conda: true    # crea el entorno desde tu archivo
-          auto-activate-base: false
-          activate-environment: IS_limpio       # nombre del entorno definido en el .yml
+    # 2. Instalar Python
+    - name: Instalar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10" # O la versión que uses tú
 
-      
-      # 4️⃣ Verificar entorno
-      - name: 4. Verificar entorno
-        shell: bash -l {0}
-        run: |
-          conda info
-          conda list
+    # 3. Instalar las librerías necesarias
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-      # 5️⃣ Ejecutar los tests
-      - name: 5. Ejecutar pruebas
-        shell: bash -l {0}
-        run: |
-            pytest -v
+    # 4. Ejecutar los tests
+    - name: Correr Pruebas con Pytest
+      run: |
+        python -m pytest -v
