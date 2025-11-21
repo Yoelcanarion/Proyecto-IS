@@ -26,7 +26,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from Backend import PreprocesamientoDatos as PrepDat
 from Backend import ProcesadoDatos as ProcDat
-
+import plotly.graph_objects as go
+from PyQt6.QtWebEngineWidgets import QWebEngineView 
 #Globales
 mensajeDefectoCmb = "--- Seleccione una columna de Salida---"
 
@@ -547,6 +548,18 @@ class MainWindowCtrl(QMainWindow):
         else:
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
+    def _mostrar_en_webview(self, fig, placeholder):
+        """Helper para renderizar figuras Plotly en QWebEngineView"""
+        self.limpiarGrafica()
+        layout = QVBoxLayout(placeholder)
+        layout.setContentsMargins(0, 0, 0, 0)
+        browser = QWebEngineView()
+        
+        html = fig.to_html(include_plotlyjs='cdn', full_html=False)
+        browser.setHtml(html)
+        
+        layout.addWidget(browser)
+        placeholder.setLayout(layout)
 
     def plotGrafica(self):   #CAMBIOS NECESARIOS
         """Método que se encarga de graficar la regresión lineal con los datos del modelo"""
@@ -567,17 +580,14 @@ class MainWindowCtrl(QMainWindow):
         self.ui.barraProgreso.setValue(0)
         QCoreApplication.processEvents()
 
-        layout = QVBoxLayout(self.ui.placeholderGrafica)
-
-        # Crear figura con estilo Seaborn
-        sns.set(style="whitegrid", context="talk")
-        fig = Figure(figsize=(6, 4))
-        canvas = FigureCanvasQTAgg(fig)
-
-
         # CAMBIO IMPORTANTE: Se extrae el nombre de la primera (y única) columna para graficar en 2D.
         # Esto mantiene la funcionalidad actual pero es consciente de que la variable es una lista.
         if len(self.columnasEntradaGraficada) == 1:
+                    # Crear figura con estilo Seaborn
+            layout = QVBoxLayout(self.ui.placeholderGrafica)
+            sns.set(style="whitegrid", context="talk")
+            fig = Figure(figsize=(6, 4))
+            canvas = FigureCanvasQTAgg(fig)
             eje = fig.add_subplot(111)
             self.ui.barraProgreso.setValue(40)
 
@@ -603,54 +613,42 @@ class MainWindowCtrl(QMainWindow):
             eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
             sns.despine(fig)
 
+            layout.addWidget(canvas)
+            self.ui.placeholderGrafica.setLayout(layout)
+            self.ui.barraProgreso.setValue(80)
+
+            # Refrescar
+            canvas.draw()
+            self.ui.barraProgreso.setValue(100)
+            QCoreApplication.processEvents()
+            self.ui.barraProgreso.setVisible(False)
+
+
         elif len(self.columnasEntradaGraficada) == 2:
-                eje = fig.add_subplot(111, projection="3d")
-                self.ui.barraProgreso.setValue(40)
+            fig = go.Figure()
+            col_x, col_y = self.columnasEntradaGraficada[0], self.columnasEntradaGraficada[1]
+            self.ui.barraProgreso.setValue(40)
 
-                # Extraer las columnas correctamente
-                nombre_columna_x = self.columnasEntradaGraficada[0]
-                nombre_columna_y = self.columnasEntradaGraficada[1]
-                
-                # Obtener los datos
-                puntosXTrain = self.xTrain[nombre_columna_x]
-                puntosYTrain = self.xTrain[nombre_columna_y]
-                puntosZTrain = self.yTrain
-                
-                puntosXTest = self.xTest[nombre_columna_x]
-                puntosYTest = self.xTest[nombre_columna_y]
-                puntosZTest = self.yTest
+            # Puntos
+            fig.add_trace(go.Scatter3d(x=self.xTrain[col_x], y=self.xTrain[col_y], z=self.yTrain, mode='markers', name='Train', marker=dict(size=4, color='blue', opacity=0.6)))
+            fig.add_trace(go.Scatter3d(x=self.xTest[col_x], y=self.xTest[col_y], z=self.yTest, mode='markers', name='Test', marker=dict(size=4, color='orange', opacity=0.8)))
 
-                # Graficar en 3D
-                eje.scatter(puntosXTrain, puntosYTrain, puntosZTrain, color='blue', label='Train', s=50)
-                eje.scatter(puntosXTest, puntosYTest, puntosZTest, color='orange', label='Test', s=50)
+            # Plano
+            x_grid = np.linspace(self.xTrain[col_x].min(), self.xTrain[col_x].max(), 20)
+            y_grid = np.linspace(self.xTrain[col_y].min(), self.xTrain[col_y].max(), 20)
+            X_mesh, Y_mesh = np.meshgrid(x_grid, y_grid)
+            XY_mesh = np.c_[X_mesh.ravel(), Y_mesh.ravel()]
+            Z_mesh = self.modelo.predict(XY_mesh).reshape(X_mesh.shape)
+            self.ui.barraProgreso.setValue(80)
 
-                # Graficar el plano de regresión
-                x_min, x_max = puntosXTrain.min(), puntosXTrain.max()
-                y_min, y_max = puntosYTrain.min(), puntosYTrain.max()
-                x_range = np.linspace(x_min - 0.5, x_max + 0.5, 20)
-                y_range = np.linspace(y_min - 0.5, y_max + 0.5, 20)
-                X_mesh, Y_mesh = np.meshgrid(x_range, y_range)
-                XY_mesh = np.c_[X_mesh.ravel(), Y_mesh.ravel()]
-                Z_mesh = self.modelo.predict(XY_mesh).reshape(X_mesh.shape)
-                eje.plot_surface(X_mesh, Y_mesh, Z_mesh, color='red', alpha=0.5, label='Plano de regresión')
+            fig.add_trace(go.Surface(x=x_grid, y=y_grid, z=Z_mesh, colorscale='Reds', opacity=0.5, name='Plano', showscale=False))
+            
+            fig.update_layout(title="Regresión Lineal 3D", scene=dict(xaxis_title=col_x, yaxis_title=col_y, zaxis_title=self.columnaSalidaGraficada), template="plotly_white", margin=dict(l=0, r=0, b=0, t=30))
+            self.figuraActual = fig
+            self._mostrar_en_webview(fig, self.ui.placeholderGrafica)
 
-                # Configurar etiquetas
-                eje.set_title("Regresión Lineal 3D", fontsize=14)
-                eje.set_xlabel(nombre_columna_x)
-                eje.set_ylabel(nombre_columna_y)
-                eje.set_zlabel(self.columnaSalidaGraficada)
-                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
-
-        # Añadir al layout
-        layout.addWidget(canvas)
-        self.ui.placeholderGrafica.setLayout(layout)
-        self.ui.barraProgreso.setValue(80)
-
-        # Refrescar
-        canvas.draw()
-        self.ui.barraProgreso.setValue(100)
-        QCoreApplication.processEvents()
-        self.ui.barraProgreso.setVisible(False)
+            self.ui.barraProgreso.setValue(100)
+            self.ui.barraProgreso.setVisible(False)
 
 
     def plotCorrelacion(self):
@@ -919,7 +917,11 @@ class MainWindowCtrl(QMainWindow):
     #Hasta aquí todo bien
 
     def plotPrediccion(self):
-        if self.ui.placeholderGrafica.layout() is None: #Crear la gráfica de 0
+        """
+        Método corregido para evitar errores de dimensionalidad en 3D (Plotly).
+        Extrae el valor escalar de self.prediccion antes de graficar.
+        """
+        if self.ui.placeholderGrafica.layout() is None: # Crear la gráfica de 0
             if len(self.columnasEntradaGraficada) > 2:
                 return
             
@@ -942,7 +944,7 @@ class MainWindowCtrl(QMainWindow):
                             label='Predicción', edgecolor='black', linewidth=1.5,
                             ax=eje, zorder=5, legend=True)
 
-                #Crear la recta de regresión
+                # Crear la recta de regresión
                 xMin, xMax = eje.get_xlim()
                 xLine = np.linspace(xMin, xMax, 100).reshape(-1, 1)
                 yLine = self.modelo.intercept_ + self.modelo.coef_[0] * xLine
@@ -950,66 +952,63 @@ class MainWindowCtrl(QMainWindow):
 
                 # Indicaciones
                 eje.set_title("Regresión Lineal", fontsize=14)
-                # CAMBIO IMPORTANTE: Se accede al primer elemento de la lista para la etiqueta del eje X.
                 eje.set_xlabel(self.columnasEntradaGraficada[0])
                 eje.set_ylabel(self.columnaSalidaGraficada)
-                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
+                eje.legend(handlelength=1.0, handletextpad=0.5, borderpad=0.3, labelspacing=0.3)
                 sns.despine(fig)
+                layout.addWidget(canvas)
+                self.ui.placeholderGrafica.setLayout(layout)
+                self.ui.barraProgreso.setValue(80)
+
+                # Refrescar
+                canvas.draw()
+                self.ui.barraProgreso.setValue(100)
+                QCoreApplication.processEvents()
+                self.ui.barraProgreso.setVisible(False)
 
             elif len(self.columnasEntradaGraficada) == 2:
+                x1_input = self.datosEntrada[0]
+                x2_input = self.datosEntrada[1]
+                
+                # CORRECCIÓN: Extraer el valor escalar para evitar error de array anidado
+                val_pred = self.prediccion[0] 
+
+                x1_min, x1_max = x1_input - 5, x1_input + 5
+                x2_min, x2_max = x2_input - 5, x2_input + 5
+                
+                X1, X2 = np.meshgrid(np.linspace(x1_min, x1_max, 20), np.linspace(x2_min, x2_max, 20))
+                Z = self.modelo.coef_[0] * X1 + self.modelo.coef_[1] * X2 + self.modelo.intercept_
+                
                 self.ui.barraProgreso.setVisible(True)
-                self.ui.barraProgreso.setValue(0)
-                QCoreApplication.processEvents()
-
-                layout = QVBoxLayout(self.ui.placeholderGrafica)
-
-                # Crear figura con estilo Seaborn
-                sns.set(style="whitegrid", context="talk")
-                fig = Figure(figsize=(6, 4))
-                canvas = FigureCanvasQTAgg(fig)
-                eje = fig.add_subplot(111, projection = "3d")
                 self.ui.barraProgreso.setValue(40)
-            #predicciones
-                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = "Predicción", marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
 
-                xMin, xMax = eje.get_xlim()
-                yMin, yMax = eje.get_ylim()
-                X, Y = np.meshgrid(np.linspace(xMin, xMax, 100), np.linspace(yMin, yMax, 100))
-                Z = self.modelo.coef_[0] * X + self.modelo.coef_[1] * Y + self.modelo.intercept_
-                eje.plot_surface(X, Y, Z, color='red', alpha=0.5, label='Plano de regresión')
+                fig = go.Figure()
+                
+                fig.add_trace(go.Surface(x=X1, y=X2, z=Z, name='Plano de Regresión', opacity=0.5, colorscale='Viridis', showscale=False))
+                self.ui.barraProgreso.setValue(80)
 
-                eje.set_title("Regresión Lineal 3D", fontsize=14)
-                eje.set_xlabel(self.columnasEntradaGraficada[0])
-                eje.set_ylabel(self.columnasEntradaGraficada[1])
-                eje.set_zlabel(self.columnaSalidaGraficada)
-                eje.legend(  handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
+                # Se usa val_pred (escalar) en lugar de self.prediccion (array)
+                fig.add_trace(go.Scatter3d(x=[x1_input], y=[x2_input], z=[val_pred], mode='markers', name='Predicción', marker=dict(symbol='diamond', size=10, color='green', line=dict(width=1.5, color='black'))))
 
-                # Añadir al layout
-            layout.addWidget(canvas)
-            self.ui.placeholderGrafica.setLayout(layout)
-            self.ui.barraProgreso.setValue(80)
+                fig.update_layout(title="Regresión Lineal 3D", scene=dict(xaxis_title=self.columnasEntradaGraficada[0], yaxis_title=self.columnasEntradaGraficada[1], zaxis_title=self.columnaSalidaGraficada), template="plotly_white", margin=dict(l=0, r=0, b=0, t=30))
 
-            # Refrescar
-            canvas.draw()
-            self.ui.barraProgreso.setValue(100)
-            QCoreApplication.processEvents()
-            self.ui.barraProgreso.setVisible(False)
+                self.figuraActual = fig
+                self._mostrar_en_webview(fig, self.ui.placeholderGrafica)
+                self.ui.barraProgreso.setValue(100)
+                self.ui.barraProgreso.setVisible(False)
 
 
-        else: #Añadir el punto de predicción a lo ya existente
+        else: # Añadir el punto de predicción a lo ya existente
             if len(self.columnasEntradaGraficada) > 2:
                 return    
 
-
             elif len(self.columnasEntradaGraficada) == 1:
                 layout = self.ui.placeholderGrafica.layout()
-                canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
+                canvas = layout.itemAt(0).widget() # Con esto obtenemos el canvas
                 fig = canvas.figure
                 eje = fig.axes[0]
 
-                #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
                 # Graficar el punto de predicción con seaborn
-                # Verificar si ya existe 'Predicción' en la leyenda
                 handles, labels = eje.get_legend_handles_labels()
                 labelAUsar = 'Predicción' if 'Predicción' not in labels else None
 
@@ -1017,31 +1016,56 @@ class MainWindowCtrl(QMainWindow):
                             label=labelAUsar, edgecolor='black', linewidth=1.5,
                             ax=eje, zorder=5, legend=False)
 
-                # Actualizar la leyenda solo si hay labels
                 if labelAUsar or handles:
-                    eje.legend(handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
+                    eje.legend(handlelength=1.0, handletextpad=0.5, borderpad=0.3, labelspacing=0.3)
 
                 canvas.draw()
             
-
             elif len(self.columnasEntradaGraficada) == 2:
+                # 1. Obtener el layout y el widget del navegador existente
                 layout = self.ui.placeholderGrafica.layout()
-                canvas = layout.itemAt(0).widget() #Con esto obtenemos el canvas
-                fig = canvas.figure
-                eje = fig.axes[0]
+                
+                # Verificamos que haya un widget (el navegador)
+                if layout is not None and layout.count() > 0:
+                    browser = layout.itemAt(0).widget()
+                    
+                    # Verificar que tenemos la figura base guardada
+                    if hasattr(self, 'figuraActual') and self.figuraActual:
+                        # 2. Crear una copia de la figura actual para no corromper la original
+                        fig = go.Figure(self.figuraActual)
+                        val_pred = self.prediccion[0]
+                        
+                        nombre_leyenda = 'Predicción'
+                        
+                        # Comprobamos si ya existe alguna traza con ese nombre en la figura
+                        ya_existe_leyenda = any(t.name == nombre_leyenda for t in fig.data)
+                        
+                        # Solo mostramos la leyenda si es la primera vez que aparece
+                        mostrar_en_leyenda = not ya_existe_leyenda
 
-                #NOTA PARA CASA: x e y deben tener el formato [valores], y ese ya es el formato base de self.datosEntrada y self.prediccion
-                # Graficar el punto de predicción con seaborn
-                # Verificar si ya existe 'Predicción' en la leyenda
-                handles, labels = eje.get_legend_handles_labels()
-                labelAUsar = 'Predicción' if 'Predicción' not in labels else None
+                        # 3. Añadir el nuevo punto (Traza)
+                        fig.add_trace(go.Scatter3d(
+                            x=[self.datosEntrada[0]], 
+                            y=[self.datosEntrada[1]], 
+                            z=[val_pred], 
+                            mode='markers', 
+                            name=nombre_leyenda, 
+                            legendgroup='grupo_prediccion', # Agrupa todos los puntos para que actúen juntos
+                            showlegend=mostrar_en_leyenda,  # True solo la primera vez, False las siguientes
+                            marker=dict(color='green', size=10, symbol='diamond', line=dict(color='black', width=1))
+                        ))
 
-                eje.scatter(self.datosEntrada[0], self.datosEntrada[1], self.prediccion, color = "green", label = labelAUsar, marker = "*", s = 200, edgecolor = "black", linewidth = 1.5)
-
-                if labelAUsar or handles:
-                    eje.legend(handlelength=1.0,  handletextpad=0.5,  borderpad=0.3,  labelspacing=0.3)
-
-                canvas.draw()
+                        # (Opcional) Mantener la vista de la cámara para que no se resetee el zoom/giro
+                        if hasattr(self.figuraActual.layout, 'scene'):
+                            fig.update_layout(scene_camera=self.figuraActual.layout.scene.camera)
+                        
+                        # 4. Actualizar la referencia
+                        self.figuraActual = fig 
+                        
+                        # 5. IMPORTANTE: Generar el HTML y actualizar el navegador EXISTENTE
+                        # No llamamos a _mostrar_en_webview porque eso crearía otro navegador.
+                        html = fig.to_html(include_plotlyjs='cdn', full_html=False)
+                        browser.setHtml(html)
 
 
 if __name__ == "main":
