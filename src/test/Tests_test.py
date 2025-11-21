@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import os
 import pickle as pk
-from ProcesadoDatos import crearAjustarModelo
-from GestionDatos import crearDiccionarioModelo, crearModeloDisco
+from src.Backend.ProcesadoDatos import crearAjustarModelo
+from src.Backend.GestionDatos import crearDiccionarioModelo, crearModeloDisco
 
 
 # Fixtures (Datos y configuraciones compartidas)

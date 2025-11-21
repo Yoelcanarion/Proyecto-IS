@@ -285,7 +285,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         if checkedTexts:
             self.lineEdit().setText(", ".join(checkedTexts))
         else:
-            self.lineEdit().setText("--- Seleccione una o varias ---")
+            self.lineEdit().setText("--- Seleccione una o varias columnas de entrada ---")
 
     def getCheckedItems(self):
         """

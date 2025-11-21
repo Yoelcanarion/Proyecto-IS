@@ -28,7 +28,7 @@ from Backend import PreprocesamientoDatos as PrepDat
 from Backend import ProcesadoDatos as ProcDat
 
 #Globales
-mensajeDefectoCmb = "--- Seleccione una columna---"
+mensajeDefectoCmb = "--- Seleccione una columna de Salida---"
 
 
 class MainWindowCtrl(QMainWindow):
