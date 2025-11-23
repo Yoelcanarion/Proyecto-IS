@@ -140,6 +140,9 @@ class Ui_MainWindow(object):
         self.numeroSliderTest.setProperty("value", 20)
         self.numeroSliderTest.setObjectName("numeroSliderTest")
         self.conjuntoDatosGrafica.addWidget(self.numeroSliderTest)
+        self.cmbModelos = QtWidgets.QComboBox(parent=self.tabPrep)
+        self.cmbModelos.setObjectName("cmbModelos")
+        self.conjuntoDatosGrafica.addWidget(self.cmbModelos)
         self.botonDividirTest = QtWidgets.QPushButton(parent=self.tabPrep)
         self.botonDividirTest.setObjectName("botonDividirTest")
         self.conjuntoDatosGrafica.addWidget(self.botonDividirTest)
@@ -292,7 +295,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_6.addWidget(self.widget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(parent=MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1200, 22))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1200, 26))
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
@@ -329,3 +332,13 @@ class Ui_MainWindow(object):
         self.btnAplicarPrediccion.setText(_translate("MainWindow", "Predecir"))
         self.labelPrediccion.setText(_translate("MainWindow", "Resultado Predicción"))
         self.conjuntoTabs.setTabText(self.conjuntoTabs.indexOf(self.tabVis), _translate("MainWindow", "Visualizacion y Predicción"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec())

@@ -1,5 +1,6 @@
 import pandas as pd
 import pickle as pk
+import numpy as np
 #LEED LOS COMENTARIOS
 #En este archivo deberia ir todo lo relacionado con carga actualizacion y consulta a datos(CRUD)
 
@@ -49,34 +50,67 @@ def cargaColumnas(datos, solo_numericas=True):
         return cargaColumnasTotal(datos)
 
 
-def crearDiccionarioModelo(modelo,columnasEntrada,columnaSalida,r2Train,r2Test, ecmTrain,ecmTest,descripcion):
-    # CAMBIO IMPORTANTE: La fórmula se genera dinámicamente para soportar una o más variables de entrada.
-    # Itera sobre los coeficientes y los nombres de las columnas de entrada para construir la ecuación.
-    formula_parts = []
+def crearDiccionarioModelo(modelo, columnasEntrada, columnaSalida, r2Train, r2Test, ecmTrain, ecmTest, descripcion):
+    """
+    Crea un diccionario con los datos del modelo para guardarlo.
+    CORRECCIÓN: Aplana los coeficientes con numpy para soportar Regresión Logística (que devuelve matrices) 
+    y Regresión Lineal (que devuelve vectores) sin errores de formato.
+    """
+    formula = "Fórmula no disponible"
+
+    # Verificamos si el modelo tiene coeficientes paramétricos
     if hasattr(modelo, 'coef_') and hasattr(modelo, 'intercept_'):
-        for i, col in enumerate(columnasEntrada):
-            formula_parts.append(f"{modelo.coef_[i]:.4f} * {col}")
-        formula = f"y = {modelo.intercept_:.4f} + {' + '.join(formula_parts)}"
+        try:
+            # 1. APLANAR COEFICIENTES
+            # Convertimos cualquier formato
+            # Logistica: [[0.1, 0.2]] -> [0.1, 0.2]
+            # Lineal:    [0.1, 0.2]   -> [0.1, 0.2]
+            coefs = np.array(modelo.coef_).flatten()
+            intercepts = np.array(modelo.intercept_).flatten()
+            val_intercept = intercepts[0] if len(intercepts) > 0 else 0
+
+            # 2. Construir la ecuación iterando sobre el array plano
+            formula_parts = []
+            for i, col in enumerate(columnasEntrada):
+                # Protección: asegurarnos de no salirnos del índice si hay discrepancia
+                if i < len(coefs):
+                    val_coef = coefs[i]
+                    formula_parts.append(f"{val_coef:.4f} * {col}")
+            
+            # 3. Distinguir tipo de fórmula para ser más precisos
+            nombre_modelo = str(type(modelo).__name__)
+            
+            if "Logistic" in nombre_modelo:
+                # En logística, la ecuación lineal calcula el logit, no la salida directa
+                formula = f"logit(p) = {val_intercept:.4f} + {' + '.join(formula_parts)}"
+            else:
+                formula = f"y = {val_intercept:.4f} + {' + '.join(formula_parts)}"
+
+        except Exception as e:
+            # Si falla algo raro (ej: modelo complejo no estándar), ponemos fallback
+            print(f"No se pudo generar la fórmula texto: {e}")
+            formula = "Fórmula compleja / No paramétrica"
+    
     else:
-        formula = "Fórmula no disponible"
+        # Para KNN, Árboles, SVR (rbf), etc.
+        formula = "Modelo no paramétrico (Caja negra)"
 
-
-    modeloGuardado = {
-    "modelo": modelo,
-    "descripcion": descripcion,
-    "columnasEntrada": columnasEntrada,
-    "columnaSalida": columnaSalida,
-    "metricas": {
-        "r2Train": r2Train,
-        "r2Test": r2Test,
-        "ecmTrain": ecmTrain,
-        "ecmTest": ecmTest
-    },
-    "formula": formula, # CAMBIO IMPORTANTE: Se utiliza la fórmula generada dinámicamente.
+    # Construcción del diccionario
+    dict_modelo = {
+        "modelo": modelo,
+        "columnasEntrada": columnasEntrada,
+        "columnaSalida": columnaSalida,
+        "metricas": {
+            "r2Train": r2Train,
+            "r2Test": r2Test,
+            "ecmTrain": ecmTrain,
+            "ecmTest": ecmTest
+        },
+        "formula": formula,
+        "descripcion": descripcion
     }
-    return modeloGuardado
-
-import pickle as pk
+    
+    return dict_modelo
 
 def crearModeloDisco(dict_modelo, ruta):
     """

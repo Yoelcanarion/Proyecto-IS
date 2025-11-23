@@ -194,7 +194,13 @@ class PandasModelConColor(QAbstractTableModel):
         return None
 
 
+from PyQt6 import QtWidgets, QtGui, QtCore
+
 class CheckableComboBox(QtWidgets.QComboBox):
+    """
+    ComboBox personalizado que permite seleccionar múltiples opciones mediante checkboxes.
+    Versión Corregida: Captura eventos en el viewport() para asegurar que los clics funcionan.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -209,88 +215,70 @@ class CheckableComboBox(QtWidgets.QComboBox):
         self.model = QtGui.QStandardItemModel(self)
         self.setModel(self.model)
         
-        # --- Lógica de Eventos para Mejorar la UX ---
+        # --- Lógica de Eventos ---
         
-        # 1. ABRIR DESPLEGABLE AL CLICAR EN CUALQUIER PARTE
-        # Instalamos un filtro de eventos sobre el QLineEdit interno.
-        # Esto nos permitirá capturar los clics sobre él.
+        # 1. Abrir desplegable al clicar en el texto principal
         self.lineEdit().installEventFilter(self)
 
-        # 2. CERRAR EL DESPLEGABLE AL CLICAR FUERA
-        # Instalamos un filtro sobre la vista desplegable (el QListView).
-        self.view.installEventFilter(self)
+        # 2. CORRECCIÓN IMPORTANTE: Instalar filtro en el VIEWPORT
+        # Los clics ocurren en el área de dibujo (viewport), no en el contenedor.
+        self.view.viewport().installEventFilter(self)
         
-        # --- Conexiones y Estado Inicial ---
+        # --- Conexiones y Estado ---
         self.model.dataChanged.connect(self.updateText)
-        self._keepPopupOpen = False # Flag para controlar el cierre del desplegable
-        self.updateText() # Establecer texto inicial
+        self._keepPopupOpen = False 
+        self.updateText() 
 
     def eventFilter(self, objectWatched, event):
-        """
-        El corazón de la nueva funcionalidad. Este método intercepta
-        eventos de los widgets en los que lo hemos instalado.
-        (Nota: El nombre de este método no se cambia a camelCase 
-        porque estamos sobreescribiendo un método existente de Qt).
-        """
-        # --- Lógica para abrir el desplegable al clicar en el texto ---
+        # A) Clic en el LineEdit -> Abrir desplegable
         if objectWatched == self.lineEdit():
             if event.type() == QtCore.QEvent.Type.MouseButtonPress:
-                # Si se clica el LineEdit, mostramos el desplegable y
-                # retornamos True para indicar que hemos manejado el evento.
                 self.showPopup()
                 return True
 
-        # --- Lógica para mantener el desplegable abierto al clicar en un ítem ---
-        if objectWatched == self.view:
+        # B) Clic en la Lista (Viewport) -> Marcar item y mantener abierto
+        # Comprobamos si el objeto es el viewport de nuestra vista
+        if objectWatched == self.view.viewport():
             if event.type() == QtCore.QEvent.Type.MouseButtonPress:
-                # Si se clica dentro de la vista, activamos nuestro flag
-                # para que hidePopup() sepa que no debe cerrarse.
                 index = self.view.indexAt(event.pos())
+                
                 if index.isValid():
                     self._keepPopupOpen = True
+                    item = self.model.itemFromIndex(index)
+                    
+                    # Invertir estado
+                    if item.checkState() == QtCore.Qt.CheckState.Checked:
+                        item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+                    else:
+                        item.setCheckState(QtCore.Qt.CheckState.Checked)
+                    
+                    # Consumir evento para evitar cierre
+                    return True
         
-        # Devolvemos el control al comportamiento por defecto para otros eventos
         return super().eventFilter(objectWatched, event)
 
     def hidePopup(self):
-        """
-        Anulamos hidePopup para decidir cuándo debe cerrarse.
-        (Nota: El nombre de este método no se cambia a camelCase 
-        porque estamos sobreescribiendo un método existente de Qt).
-        """
         if self._keepPopupOpen:
-            # Si nuestro flag está activo (porque se clicó un ítem),
-            # lo reseteamos y evitamos que el desplegable se cierre.
             self._keepPopupOpen = False
         else:
-            # Si el flag no está activo (el cierre fue por clicar fuera,
-            # perder el foco, etc.), procedemos con el cierre normal.
             super().hidePopup()
 
     def addItem(self, text, checked=False):
-        """
-        Añade un nuevo ítem chequeable a la lista.
-        """
         item = QtGui.QStandardItem(text)
+        # Flags estándar: Habilitado y "Checkeable" por usuario
         item.setFlags(QtCore.Qt.ItemFlag.ItemIsUserCheckable | QtCore.Qt.ItemFlag.ItemIsEnabled)
         item.setData(QtCore.Qt.CheckState.Checked if checked else QtCore.Qt.CheckState.Unchecked, QtCore.Qt.ItemDataRole.CheckStateRole)
         self.model.appendRow(item)
         self.updateText()
 
     def updateText(self):
-        """
-        Actualiza el texto principal del combobox para reflejar los ítems seleccionados.
-        """
         checkedTexts = self.getCheckedItems()
         if checkedTexts:
             self.lineEdit().setText(", ".join(checkedTexts))
         else:
-            self.lineEdit().setText("--- Seleccione una o varias columnas de entrada ---")
+            self.lineEdit().setText("--- Seleccione columnas ---")
 
     def getCheckedItems(self):
-        """
-        Devuelve una lista con los textos de todos los ítems marcados.
-        """
         checkedItems = []
         for i in range(self.model.rowCount()):
             item = self.model.item(i)

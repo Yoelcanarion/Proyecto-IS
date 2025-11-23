@@ -318,6 +318,9 @@
               </widget>
              </item>
              <item>
+              <widget class="QComboBox" name="cmbModelos"/>
+             </item>
+             <item>
               <widget class="QPushButton" name="botonDividirTest">
                <property name="text">
                 <string>Aplicar  División</string>
@@ -654,7 +657,7 @@
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>
