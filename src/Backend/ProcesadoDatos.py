@@ -8,7 +8,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 
@@ -43,6 +43,12 @@ def _calcularMetricasRegresion(yTrue, yPred):
     ecm = mean_squared_error(yTrue, yPred)
     return r2, ecm
 
+def _calcularAccuracy(yTrue, yPred):
+    """
+    Calcula la precisión (accuracy) para modelos de clasificación.
+    """
+    return accuracy_score(yTrue, yPred)
+
 # --- FUNCIONES DE EJECUCIÓN DE MODELOS (Ahora devuelven el objeto modelo) ---
 
 def ejecutarRegresionLineal(xTrain, yTrain, xTest, yTest):
@@ -57,8 +63,10 @@ def ejecutarRegresionLineal(xTrain, yTrain, xTest, yTest):
     r2Train, ecmTrain = _calcularMetricasRegresion(yTrain, yTrainPred)
     r2Test, ecmTest = _calcularMetricasRegresion(yTest, yTestPred)
     
+    msg = "No compatible (Regresion)"
+    
     # Devolvemos modelo al principio
-    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest
+    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest, msg,msg
 
 def ejecutarRegresionPolinomica(xTrain, yTrain, xTest, yTest):
     _validarDatosNumericos(xTrain, "Entrada (X)")
@@ -72,7 +80,10 @@ def ejecutarRegresionPolinomica(xTrain, yTrain, xTest, yTest):
     r2Train, ecmTrain = _calcularMetricasRegresion(yTrain, yTrainPred)
     r2Test, ecmTest = _calcularMetricasRegresion(yTest, yTestPred)
     
-    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest
+    msg = "No compatible (Regresion)"
+
+    
+    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,msg,msg
 
 def ejecutarSVR(xTrain, yTrain, xTest, yTest):
     _validarDatosNumericos(xTrain, "Entrada (X)")
@@ -86,7 +97,10 @@ def ejecutarSVR(xTrain, yTrain, xTest, yTest):
     r2Train, ecmTrain = _calcularMetricasRegresion(yTrain, yTrainPred)
     r2Test, ecmTest = _calcularMetricasRegresion(yTest, yTestPred)
     
-    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest
+    msg = "No compatible (Regresion)"
+
+    
+    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,msg,msg
 
 def ejecutarArbolDecision(xTrain, yTrain, xTest, yTest):
     _validarDatosNumericos(xTrain, "Entrada (X)")
@@ -100,7 +114,10 @@ def ejecutarArbolDecision(xTrain, yTrain, xTest, yTest):
     r2Train, ecmTrain = _calcularMetricasRegresion(yTrain, yTrainPred)
     r2Test, ecmTest = _calcularMetricasRegresion(yTest, yTestPred)
     
-    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest
+    msg = "No compatible (Regresion)"
+
+    
+    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,msg,msg
 
 def ejecutarKNN(xTrain, yTrain, xTest, yTest):
     _validarDatosNumericos(xTrain, "Entrada (X)")
@@ -114,7 +131,10 @@ def ejecutarKNN(xTrain, yTrain, xTest, yTest):
     r2Train, ecmTrain = _calcularMetricasRegresion(yTrain, yTrainPred)
     r2Test, ecmTest = _calcularMetricasRegresion(yTest, yTestPred)
     
-    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest
+    msg = "No compatible (Regresion)"
+
+    
+    return modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,msg,msg
 
 def ejecutarRegresionLogistica(xTrain, yTrain, xTest, yTest):
     _validarDatosNumericos(xTrain, "Entrada (X)")
@@ -126,9 +146,12 @@ def ejecutarRegresionLogistica(xTrain, yTrain, xTest, yTest):
     yTrainPred = modelo.predict(xTrain)
     yTestPred = modelo.predict(xTest)
     
+    accTrain = _calcularAccuracy(yTrain, yTrainPred)
+    accTest = _calcularAccuracy(yTest, yTestPred)
+    
     msg = "No compatible (Clasificación)"
     
-    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg
+    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg, accTrain, accTest
 
 def ejecutarArbolClasificacion(xTrain, yTrain, xTest, yTest):
     """Árbol de Decisión para Clasificación (Categorías)"""
@@ -141,8 +164,12 @@ def ejecutarArbolClasificacion(xTrain, yTrain, xTest, yTest):
     yTrainPred = modelo.predict(xTrain)
     yTestPred = modelo.predict(xTest)
     
-    msg = "No compatible (Ver Matriz)"
-    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg
+    accTrain = _calcularAccuracy(yTrain, yTrainPred)
+    accTest = _calcularAccuracy(yTest, yTestPred)
+    
+    msg = "No compatible (Clasificación)"
+    
+    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg, accTrain, accTest
 
 def ejecutarKNNClasificacion(xTrain, yTrain, xTest, yTest):
     """KNN para Clasificación (Categorías)"""
@@ -155,8 +182,41 @@ def ejecutarKNNClasificacion(xTrain, yTrain, xTest, yTest):
     yTrainPred = modelo.predict(xTrain)
     yTestPred = modelo.predict(xTest)
     
-    msg = "No compatible (Ver Matriz)"
-    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg
+    accTrain = _calcularAccuracy(yTrain, yTrainPred)
+    accTest = _calcularAccuracy(yTest, yTestPred)
+    
+    msg = "No compatible (Clasificación)"
+    
+    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg, accTrain, accTest
+
+def ejecutarLogisticaBinaria(xTrain, yTrain, xTest, yTest):
+    """
+    Regresión Logística restringida estrictamente a 2 clases (Binaria).
+    Lanza error si hay más de 2 categorías.
+    """
+    _validarDatosNumericos(xTrain, "Entrada (X)")
+    _validarDatosClasificacion(yTrain)
+
+    # Validación Específica: Asegurar que es binario
+    n_clases = yTrain.nunique()
+    if n_clases != 2:
+        raise ValueError(f"Error: La 'Regresión Logística Binaria' requiere exactamente 2 clases. "
+                         f"Tu columna de salida tiene {n_clases} categorías. "
+                         f"Usa la 'Regresión Logística' estándar (multiclase).")
+
+    # Solver 'liblinear' suele ser mejor para problemas binarios
+    modelo = LogisticRegression(max_iter=1000, solver='liblinear').fit(xTrain, yTrain)
+    
+    yTrainPred = modelo.predict(xTrain)
+    yTestPred = modelo.predict(xTest)
+    
+    accTrain = _calcularAccuracy(yTrain, yTrainPred)
+    accTest = _calcularAccuracy(yTest, yTestPred)
+    
+    msg = "No compatible (Clasificación)"
+    
+    return modelo, yTrainPred, yTestPred, msg, msg, msg, msg, accTrain, accTest
+    
 
 # --- DICCIONARIO CONFIGURACIÓN ---
 configuracionModelos = {
@@ -166,6 +226,7 @@ configuracionModelos = {
     "Árbol de Decisión":     {"funcion": ejecutarArbolDecision,       "esGraficable": True},
     "KNN":                   {"funcion": ejecutarKNN,                 "esGraficable": True},
     "Regresión Logística":   {"funcion": ejecutarRegresionLogistica,  "esGraficable": True},
+    "Regresión Logística Binaria":{"funcion": ejecutarLogisticaBinaria,    "esGraficable": True},
     "Árbol de Decisión (Clasif)":{"funcion": ejecutarArbolClasificacion,   "esGraficable": True},
     "KNN (Clasificación)":       {"funcion": ejecutarKNNClasificacion,     "esGraficable": True}
 }
@@ -239,7 +300,7 @@ def crearAjustarModelo(dataFrameTrain, dataFrameTest, columnasEntradaGraficada, 
 
         # 3. Ejecutar Modelo 
         # IMPORTANTE: Ahora desempaquetamos el 'modelo' también
-        modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest = funcionModelo(xTrain, yTrain, xTest, yTest)
+        modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,accTrain,accTest = funcionModelo(xTrain, yTrain, xTest, yTest)
 
     except ValueError as ve:
         # Capturamos errores de validación y los relanzamos
@@ -249,4 +310,4 @@ def crearAjustarModelo(dataFrameTrain, dataFrameTest, columnasEntradaGraficada, 
         raise Exception(f"Error inesperado en el modelado: {e}")
     
     # Devolvemos 'modelo' después de los datos originales
-    return xTrain, yTrain, xTest, yTest, modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest, esGraficable
+    return xTrain, yTrain, xTest, yTest, modelo, yTrainPred, yTestPred, r2Train, r2Test, ecmTrain, ecmTest,accTrain,accTest, esGraficable

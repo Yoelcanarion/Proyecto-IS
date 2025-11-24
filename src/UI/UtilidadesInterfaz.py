@@ -47,6 +47,17 @@ class Mensajes:
             funcionContinuar()
         else: 
             return
+    
+    @staticmethod
+    def crearEncuestaSimple(parent, titulo, mensaje):
+        """Devuelve True si el usuario dice Sí/Ok, False si dice No/Cancel"""
+        dlg = QMessageBox(parent)
+        dlg.setIcon(QMessageBox.Icon.Question)
+        dlg.setWindowTitle(titulo)
+        dlg.setText(mensaje)
+        dlg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        respuesta = dlg.exec()
+        return respuesta == QMessageBox.StandardButton.Yes
 
 
     @staticmethod

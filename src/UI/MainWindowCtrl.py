@@ -33,6 +33,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from PyQt6.QtCore import QCoreApplication
 from sklearn.metrics import confusion_matrix
+from sklearn.base import is_classifier
 
 #Globales
 mensajeDefectoCmb = "--- Seleccione una columna de Salida---"
@@ -93,13 +94,14 @@ class MainWindowCtrl(QMainWindow):
 
     def resetearTodo(self):
         """Convierte a todas las variables en None"""
-                # DataFrames
+        # DataFrames
         self._df = None
         self.dfProcesado = None
         self.dataFrameTest = None
         self.dataFrameTrain = None
         self.tamDfProc = None
         self.tamDf = None
+        self.dicColumnaSalida = None
         # Columnas seleccionadas para entrada y salida
         self.columnasEntrada = None
         self.columnaSalida = None
@@ -128,25 +130,56 @@ class MainWindowCtrl(QMainWindow):
         # Limpiar gráfica
         self.limpiarGrafica()
 
-    def cargarComboModelos(self, logistico):
+    def cargarComboModelos(self, esCategorico):
+        """
+        Carga el ComboBox de modelos disponibles basándose en la naturaleza de los datos.
+        Lógica simplificada mediante composición de listas.
+        """
         self.ui.cmbModelos.clear()
-        if logistico:
-            self.ui.cmbModelos.addItems([
-            "--- Seleccione un Entrenamiento---",
-            "Regresión Logística" ,
-            "Árbol de Decisión (Clasif)",
+        self.dicColumnaSalida= None
+        self.ui.cmbModelos.addItem("---Seleccione un Entrenamiento---")
+
+        # 1. Definición de Grupos de Modelos
+        MODELOS_REGRESION = [
+            "Regresión Lineal", "Regresión Polinómica", 
+            "SVR", "Árbol de Decisión", "KNN"
+        ]
+        MODELOS_CLASIFICACION = [
+            "Regresión Logística", "Árbol de Decisión (Clasif)", 
             "KNN (Clasificación)"
-        ])
-        else:
-            self.ui.cmbModelos.addItems([
-            "--- Seleccione un Entrenamiento---",
-            "Regresión Lineal",   
-            "Regresión Polinómica",
-            "SVR",  
-            "Árbol de Decisión", 
-            "KNN",
-        ])
+        ]
+        MODELOS_BINARIOS = ["Regresión Logística Binaria"]
+
+        # 2. Detección de estado
+        esBinario = self.dfProcesado[self.columnaSalida].nunique() == 2
+        listaModelos = []
+
+        # 3. Lógica de Decisión
+        if esCategorico:
+            listaModelos = MODELOS_CLASIFICACION
             
+            if esBinario:
+                listaModelos += MODELOS_BINARIOS
+                aceptarTransformacion = self.msj.crearEncuestaSimple(
+                    self,
+                    "Datos Binarios Detectados",
+                    "Su salida es binaria pero de texto (ej: 'Sí'/'No').\n"
+                    "¿Desea transformarla internamente a numérica (0/1) para poder usar también modelos de Regresión?"
+                )
+                
+                if aceptarTransformacion:
+                    self.dicColumnaSalida = gd.transformarColumnaBinariaAuto(self.dfProcesado,self.columnaSalida) 
+                    listaModelos += MODELOS_REGRESION
+
+        else:
+            # Caso Numérico
+            if esBinario:
+                listaModelos = MODELOS_CLASIFICACION + MODELOS_BINARIOS + MODELOS_REGRESION
+            else:
+                listaModelos = MODELOS_REGRESION
+
+        # 4. Carga final
+        self.ui.cmbModelos.addItems(listaModelos)
 
     def resetearPaginaPreprocesado(self):
         """Resetea los elementos de la página 1"""
@@ -346,6 +379,7 @@ class MainWindowCtrl(QMainWindow):
                 self.ui.sliderProporcionTest.hide()
                 self.ui.lblDivision.hide()
                 self.ui.cmbModelos.hide()
+                self.ui.lblDatosDivision.hide()
                 self.ui.cmbOpcionesPreprocesado.show()
                 self.ui.botonAplicarPreprocesado.show()
             else:
@@ -354,6 +388,7 @@ class MainWindowCtrl(QMainWindow):
                 self.ui.sliderProporcionTest.show()
                 self.ui.lblDivision.show()
                 self.ui.cmbModelos.show()
+                self.ui.lblDatosDivision.show()
                 self.ui.cmbOpcionesPreprocesado.hide()
                 self.ui.botonAplicarPreprocesado.hide()
                 msj.crearInformacion(self,"Informacion", "No se han encontrado nulos en tus columnas seleccionadas, puedes proceder con el data split")
@@ -573,6 +608,8 @@ class MainWindowCtrl(QMainWindow):
                 msj.crearAdvertencia(self, "Error: faltan los siguientes parámetros de descripción:", f"{faltantes}")
                 return
 
+            parametros["dicColumnaSalida"] = self.dicColumnaSalida
+            
             # Crear diccionario del modelo
             dict_modelo = gd.crearDiccionarioModelo(**parametros)
 
@@ -588,44 +625,29 @@ class MainWindowCtrl(QMainWindow):
         else:
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
-
     def pipelineModelo(self):
-        """
-        Genera el modelo y grafica.
-        FIX: Limpia el buffer de inputs anteriores para evitar predicciones fantasma.
-        """
-        if(self.ui.cmbModelos.currentText() == "--- Seleccione un Entrenamiento---"):
-            return
+        if(self.ui.cmbModelos.currentText() == "--- Seleccione un Entrenamiento---"): return
         
         self.procesoDataSplit()
-        
-        # Transición
         self.transicion.cambiarPagina(1)
         
         self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
 
-        if hasattr(self, 'datosEntrada'):
-            self.datosEntrada.clear()
+        if hasattr(self, 'datosEntrada'): self.datosEntrada.clear()
 
-        # Info Barra Estado
         entradas_str = ", ".join(self.columnasEntradaGraficada)
         self.statusBar().showMessage(f"Entrada: {entradas_str} | Salida: {self.columnaSalidaGraficada}")
-
-        if self.ui.placeholderGrafica.layout() is not None or self.ui.placeholderCorrelacion.layout() is not None:
-            self.limpiarGrafica()
+        self.limpiarGrafica()
 
         try: 
             nombre_modelo = self.ui.cmbModelos.currentText() 
 
-            # Ajustar Modelo (Llamada al Backend)
-            # Asegúrate de usar 'ProcDat' o como hayas importado tu módulo de procesamiento
-            self.xTrain, self.yTrain, self.xTest, self.yTest, self.modelo, self.yTrainPred, self.yTestPred, self.r2Train, self.r2Test, self.ecmTrain, self.ecmTest, esGraficable = ProcDat.crearAjustarModelo(
-                self.dataFrameTrain, 
-                self.dataFrameTest,
-                self.columnasEntradaGraficada, 
-                self.columnaSalidaGraficada, 
-                nombre_modelo
+            self.xTrain, self.yTrain, self.xTest, self.yTest, \
+            self.modelo, self.yTrainPred, self.yTestPred, \
+            self.r2Train, self.r2Test, self.ecmTrain, self.ecmTest, \
+            self.accTrain, self.accTest, esGraficable = ProcDat.crearAjustarModelo(
+                self.dataFrameTrain, self.dataFrameTest, self.columnasEntradaGraficada, self.columnaSalidaGraficada, nombre_modelo
             )       
             
             if esGraficable:
@@ -634,52 +656,34 @@ class MainWindowCtrl(QMainWindow):
 
             self.ui.placeholderCorrelacion.show()
 
-            # Formateo de métricas
-            def fmt(valor):
-                return f"{valor:.4f}" if isinstance(valor, (int, float)) else str(valor)
+            def fmt(v): return f"{v:.4f}" if isinstance(v, (int, float)) else "N/A"
 
-            self.ui.labelR2Test.setText(
-                f"R**2 Entrenamiento: {fmt(self.r2Train)}\n"
-                f"R**2 Test: {fmt(self.r2Test)}\n\n"
-                f"ECM Entrenamiento: {fmt(self.ecmTrain)}\n"
-                f"ECM Test: {fmt(self.ecmTest)}"
-            )
+            textoMetricas = ""
+            if self.r2Train is not None:
+                textoMetricas += f"R² Train: {fmt(self.r2Train)}\nR² Test: {fmt(self.r2Test)}\n"
+                textoMetricas += f"ECM Train: {fmt(self.ecmTrain)}\nECM Test: {fmt(self.ecmTest)}"
+            
+            if self.accTrain is not None:
+                if textoMetricas: textoMetricas += "\n\n"
+                textoMetricas += f"Accuracy Train: {fmt(self.accTrain)}\nAccuracy Test: {fmt(self.accTest)}"
 
-            # Fórmula
-            if hasattr(self.modelo, 'coef_') and hasattr(self.modelo, 'intercept_'):
-                try:
-                    b = self.modelo.intercept_
-                    m = self.modelo.coef_
-                    if hasattr(b, '__len__'): b = b[0]
-                    if hasattr(m, '__len__'): m = m[0]
-                    self.ui.labelFormula.setText(f"Fórmula Modelo: y = {b:.4f} + {m:.4f}*x")
-                except:
-                    self.ui.labelFormula.setText("Fórmula: Estructura compleja")
-            else:
-                self.ui.labelFormula.setText("Fórmula: No aplicable")
+            self.ui.labelR2Test.setText(textoMetricas)
 
-            # Mostrar controles
+            textoFormula = gd.generarTextoFormula(self.modelo, self.columnasEntradaGraficada)
+            self.ui.labelFormula.setText(textoFormula)
+
             self.ui.propiedadesModelo.show()
             self.ui.btnGuardarModelo.show()
             self.ui.textDescribirModelo.clear()
             self.ui.textDescribirModelo.show()
             self.ui.btnAplicarPrediccion.show()
-            
-            if len(self.columnasEntradaGraficada) > 0:
-                self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
-            else:
-                self.ui.labelEntradaActual.setText("Ingrese valor")
-                
+            self.ui.labelEntradaActual.setText(f"Ingrese valor para {self.columnasEntradaGraficada[0]}")
             self.ui.labelEntradaActual.show()
             self.ui.spinBoxEntrada.show()
             self.ui.labelPrediccion.hide()
 
-        except TypeError as mensaje:
-            msj.crearAdvertencia(self, "Error de datos", str(mensaje))
-            return
-        
-        except Exception as e:
-            msj.crearAdvertencia(self, "Error", f"Error al procesar: {str(e)}")
+        except TypeError as m: msj.crearAdvertencia(self, "Error Datos", str(m))
+        except Exception as e: msj.crearAdvertencia(self, "Error", f"Proceso fallido: {e}")
 
 
     def cargarModelo(self):
@@ -702,6 +706,7 @@ class MainWindowCtrl(QMainWindow):
             self.yTrain = None
             self.xTest = None
             self.yTest = None
+            self.dicColumnaSalida = None
             
             # También limpiamos el buffer de entrada para predicciones
             self.datosEntrada.clear() 
@@ -719,6 +724,12 @@ class MainWindowCtrl(QMainWindow):
             self.ecmTrain = metricas.get("ecmTrain")
             self.ecmTest = metricas.get("ecmTest")
             self.formula = datos.get("formula", "")
+            
+            #Carga el auxiliar
+            try:
+                self.dicColumnaSalida = datos.get("dicColumnaSalida")
+            except:
+                print("Estas cargando un modelo deprecado")
 
             # Formateador seguro para textos/números
             def fmt(val):
@@ -805,19 +816,27 @@ class MainWindowCtrl(QMainWindow):
             self.prediccion = self.modelo.predict(entradaDf)
             valorPredicho = self.prediccion[0]
             
-            # Formateo texto/número
             columnaSalida = self.columnaSalidaGraficada
             textoPredicho = ""
             
-            try:
-                valFloat = float(valorPredicho)
-                textoPredicho = f"{valFloat:.4f}"
-            except (ValueError, TypeError):
-                textoPredicho = str(valorPredicho)
+            # === LÓGICA DE TRADUCCIÓN CATEGÓRICA ===
+            if self.dicColumnaSalida is not None:
+                # Si hay diccionario, hacemos búsqueda inversa: Valor (0/1) -> Clave (Texto)
+                # 'next' busca la primera clave 'k' cuyo valor 'v' coincida con la predicción.
+                textoPredicho = next((k for k, v in self.dicColumnaSalida.items() if v == valorPredicho), str(valorPredicho))
+            else:
+                # Si NO hay diccionario, intentamos formatear como número flotante
+                try:
+                    valFloat = float(valorPredicho)
+                    textoPredicho = f"{valFloat:.4f}"
+                except (ValueError, TypeError):
+                    textoPredicho = str(valorPredicho)
 
+            # Actualizar UI
             self.ui.labelPrediccion.setText(f"Valor de {columnaSalida} predicho: {textoPredicho}")
             self.ui.labelPrediccion.show()
 
+            # Graficar (Pasamos 'valorPredicho' numérico para que se pinte bien en los ejes)
             self.plotGrafica(puntoPrediccion=(self.datosEntrada, valorPredicho))
             
             # Resetear label para la próxima vez
@@ -826,7 +845,7 @@ class MainWindowCtrl(QMainWindow):
 
         except Exception as e:
             msj.crearAdvertencia(self, "Error al predecir", str(e))
-            self.datosEntrada.clear() 
+            self.datosEntrada.clear()
             
     # ----------------------------------------------------------------------
     #                       MÉTODOS GRÁFICOS (PLOTLY)
@@ -861,58 +880,55 @@ class MainWindowCtrl(QMainWindow):
 
         self._mostrarPlotlyEnQt(fig, self.ui.placeholderGrafica)
 
-
     def _configurarGrafica2D(self, fig, puntoPrediccion):
-        """Configura trazas y layout para gráficas 2D (1 variable entrada)."""
+        """Configura gráfica 2D y aplica mapeo de texto en eje Y si existe."""
         nombreX = self.columnasEntradaGraficada[0]
-        
-        # 1. Obtener límites y dibujar datos reales si existen
         xMin, xMax = self._dibujarDatosReales2D(fig, nombreX)
         
-        # 2. Ajustar límites si solo tenemos un punto de predicción (Modelo cargado)
-        #    Si xMin es 0 y xMax es 10, asumimos que es el valor por defecto.
         if puntoPrediccion and xMin == 0 and xMax == 10:
-            valX = puntoPrediccion[0][0]
-            xMin, xMax = valX - 5, valX + 5
+            valX = puntoPrediccion[0][0]; xMin, xMax = valX - 5, valX + 5
 
-        # 3. Dibujar la línea de tendencia del modelo
         self._dibujarLineaModelo(fig, nombreX, xMin, xMax)
-
-        # 4. Dibujar el punto de predicción actual
+        
         if puntoPrediccion:
-            entrada, salida = puntoPrediccion
-            self._dibujarPuntoDestacado(fig, x=[entrada[0]], y=[salida], nombre="Predicción Actual")
-
-        # Layout
-        fig.update_layout(title="Modelo Regresión 2D", xaxis_title=nombreX, yaxis_title=self.columnaSalidaGraficada)
-
+            self._dibujarPuntoDestacado(fig, x=[puntoPrediccion[0][0]], y=[puntoPrediccion[1]], nombre="Predicción")
+        
+        # === LÓGICA DE DICCIONARIO PARA EJE Y ===
+        layoutArgs = dict(title="Modelo 2D", xaxis_title=nombreX, yaxis_title=self.columnaSalidaGraficada)
+        
+        if self.dicColumnaSalida:
+            # Obtenemos los valores ordenados (0, 1)
+            ticksVals = sorted(self.dicColumnaSalida.values())
+            # Obtenemos las claves (texto) que corresponden a esos valores
+            ticksText = [k for v in ticksVals for k, val in self.dicColumnaSalida.items() if val == v]
+            
+            # Forzamos que el eje Y muestre el texto en esos valores exactos
+            layoutArgs['yaxis'] = dict(tickmode='array', tickvals=ticksVals, ticktext=ticksText)
+            
+        fig.update_layout(**layoutArgs)
 
     def _configurarGrafica3D(self, fig, puntoPrediccion):
-        """Configura trazas y layout para gráficas 3D (2 variables entrada)."""
+        """Configura gráfica 3D y aplica mapeo de texto en eje Z si existe."""
         nombreX, nombreY = self.columnasEntradaGraficada
+        limites = self._dibujarDatosReales3D(fig, nombreX, nombreY)
         
-        # 1. Obtener límites y dibujar datos reales si existen
-        limites = self._dibujarDatosReales3D(fig, nombreX, nombreY) # (xmin, xmax, ymin, ymax)
-        
-        # 2. Ajustar límites si es necesario (Modelo cargado con predicción puntual)
         if puntoPrediccion and limites == (0, 10, 0, 10):
-            vx, vy = puntoPrediccion[0]
-            limites = (vx-5, vx+5, vy-5, vy+5)
+            vx, vy = puntoPrediccion[0]; limites = (vx-5, vx+5, vy-5, vy+5)
 
-        # 3. Dibujar superficie del modelo
         self._dibujarSuperficieModelo(fig, nombreX, nombreY, limites)
-
-        # 4. Dibujar punto de predicción
+        
         if puntoPrediccion:
-            entrada, salida = puntoPrediccion
-            self._dibujarPuntoDestacado3D(fig, x=[entrada[0]], y=[entrada[1]], z=[salida], nombre="Predicción Actual")
+            self._dibujarPuntoDestacado3D(fig, x=[puntoPrediccion[0][0]], y=[puntoPrediccion[0][1]], z=[puntoPrediccion[1]], nombre="Predicción")
+        
+        # === LÓGICA DE DICCIONARIO PARA EJE Z ===
+        sceneDict = dict(xaxis_title=nombreX, yaxis_title=nombreY, zaxis_title=self.columnaSalidaGraficada)
+        
+        if self.dicColumnaSalida:
+            ticksVals = sorted(self.dicColumnaSalida.values())
+            ticksText = [k for v in ticksVals for k, val in self.dicColumnaSalida.items() if val == v]
+            sceneDict['zaxis'] = dict(tickmode='array', tickvals=ticksVals, ticktext=ticksText)
 
-        # Layout
-        fig.update_layout(
-            title="Modelo Regresión 3D", 
-            scene=dict(xaxis_title=nombreX, yaxis_title=nombreY, zaxis_title=self.columnaSalidaGraficada),
-            margin=dict(l=0, r=0, b=0, t=40)
-        )
+        fig.update_layout(title="Modelo 3D", scene=sceneDict)
 
 
     def _configurarGraficaCorrelacion(self, fig):
@@ -948,7 +964,6 @@ class MainWindowCtrl(QMainWindow):
             yaxis_title="Valor Predicho",
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
         )
-
 
     # --- MÉTODOS HELPER 2D (Privados) ---
 
@@ -1026,7 +1041,7 @@ class MainWindowCtrl(QMainWindow):
             zFlat = self.modelo.predict(dfMesh)
             
             # Solo graficamos superficie si la salida es numérica (para evitar error en clasificación de texto)
-            if np.issubdtype(zFlat.dtype, np.number):
+            if  not is_classifier(self.modelo):
                 zMesh = zFlat.reshape(xMesh.shape)
                 fig.add_trace(go.Surface(z=zMesh, x=xLin, y=yLin, colorscale='Reds', opacity=0.5, name='Modelo', showscale=False))
         except Exception:
@@ -1071,9 +1086,8 @@ class MainWindowCtrl(QMainWindow):
 
         try:
             # Determinamos si es Clasificación (Texto/Categoría) o Regresión (Números)
-            esNumerico = is_numeric_dtype(self.yTest)
-
-            if esNumerico:
+            esClasificador =  is_classifier(self.modelo)
+            if not esClasificador:
                 self._configurarGraficaCorrelacion(fig)
             else:
                 self._configurarMatrizConfusion(fig)
@@ -1084,46 +1098,34 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", f"Error al graficar estadísticas: {e}")
 
     def _configurarMatrizConfusion(self, fig):
-        """Genera una Matriz de Confusión (Heatmap) para modelos de clasificación."""
+        """Genera Matriz de Confusión usando nombres reales si existen en el diccionario."""
         yPred = self.modelo.predict(self.xTest)
         
-        # Calcular matriz de confusión
-        # labels=unique_labels asegura que el orden sea consistente
-        labels = sorted(list(set(self.yTest) | set(yPred)))
-        cm = confusion_matrix(self.yTest, yPred, labels=labels)
+        # Obtenemos las etiquetas numéricas presentes (0, 1)
+        lblsNum = sorted(list(set(self.yTest) | set(yPred)))
         
-        # Invertimos el eje Y para que coincida con la visualización estándar (Origen arriba-izq vs abajo-izq)
-        # En plotly heatmaps, a veces es mejor invertirlo para leerlo como matriz clásica.
-        # Pero standard plotly: x=Predicted, y=Actual
-        
-        # Crear Heatmap
-        fig.add_trace(go.Heatmap(
-            z=cm,
-            x=labels,
-            y=labels,
-            colorscale='Blues',
-            showscale=True
-        ))
+        # === LÓGICA DE DICCIONARIO PARA ETIQUETAS ===
+        if self.dicColumnaSalida:
+            # Traducimos los números (0,1) al texto original (ej: 'Femenino', 'Masculino')
+            lblsText = [next((k for k, v in self.dicColumnaSalida.items() if v == val), str(val)) for val in lblsNum]
+        else:
+            lblsText = [str(l) for l in lblsNum]
 
-        # Añadir anotaciones de texto (los números dentro de los cuadros)
-        annotations = []
-        for i, row in enumerate(cm):
-            for j, value in enumerate(row):
-                annotations.append(dict(
-                    x=labels[j],
-                    y=labels[i],
-                    text=str(value),
-                    font=dict(color="white" if value > cm.max()/2 else "black"), # Contraste
-                    showarrow=False
-                ))
+        cm = confusion_matrix(self.yTest, yPred, labels=lblsNum)
         
-        fig.update_layout(
-            title="Matriz de Confusión",
-            xaxis_title="Valor Predicho",
-            yaxis_title="Valor Real",
-            annotations=annotations
-        )
- 
+        # Usamos 'lblsText' para los ejes X e Y del Heatmap
+        fig.add_trace(go.Heatmap(
+            z=cm, 
+            x=lblsText, 
+            y=lblsText, 
+            colorscale='Blues', 
+            showscale=True, 
+            text=cm, 
+            texttemplate="%{z}"
+        ))
+        
+        fig.update_layout(title="Matriz de Confusión", xaxis_title="Predicho", yaxis_title="Real")
+
     def limpiarGrafica(self):
         """Limpia los widgets de gráficas"""
         self.limpiarLayout(self.ui.placeholderGrafica)
