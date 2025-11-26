@@ -205,8 +205,6 @@ class PandasModelConColor(QAbstractTableModel):
         return None
 
 
-from PyQt6 import QtWidgets, QtGui, QtCore
-
 class CheckableComboBox(QtWidgets.QComboBox):
     """
     ComboBox personalizado que permite seleccionar múltiples opciones mediante checkboxes.
@@ -287,7 +285,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         if checkedTexts:
             self.lineEdit().setText(", ".join(checkedTexts))
         else:
-            self.lineEdit().setText("--- Seleccione columnas ---")
+            self.lineEdit().setText("--- Selecciona las columnas de entrada ---")
 
     def getCheckedItems(self):
         checkedItems = []

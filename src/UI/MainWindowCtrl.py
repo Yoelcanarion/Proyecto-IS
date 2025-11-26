@@ -8,7 +8,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 import matplotlib.pyplot as plt
-import seaborn as sns
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QInputDialog, QStatusBar,QStackedWidget,QWidget, QVBoxLayout
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QCoreApplication, QPropertyAnimation, QEasingCurve
@@ -22,7 +21,6 @@ from UI.UtilidadesInterfaz import Mensajes as msj
 from UI.UtilidadesInterfaz import PandasModelConColor
 from UI.UtilidadesInterfaz import CheckableComboBox
 from PyQt6.QtCore import Qt
-from UI.transiciones import TransicionPaginas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from Backend import PreprocesamientoDatos as PrepDat
@@ -36,7 +34,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.base import is_classifier
 
 #Globales
-mensajeDefectoCmb = "--- Seleccione una columna de Salida---"
+mensajeDefectoCmb = "--- Selecciona las columnas de Salida ---"
 
 
 
@@ -62,9 +60,6 @@ class MainWindowCtrl(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        # Inicializar sistema de transiciones
-        self.transicion = TransicionPaginas(self)
-        #sino se lo quito como veais, se puede llamar al  msj normal, sin poner controlador.msj
         self.msj = msj
         # Configuración inicial
         self.resetearTodo()
@@ -629,7 +624,8 @@ class MainWindowCtrl(QMainWindow):
         if(self.ui.cmbModelos.currentText() == "--- Seleccione un Entrenamiento---"): return
         
         self.procesoDataSplit()
-        self.transicion.cambiarPagina(1)
+        # CAMBIO REALIZADO AQUÍ: Se eliminó la transición y se usa setCurrentIndex
+        self.ui.conjuntoTabs.setCurrentIndex(1)
         
         self.columnasEntradaGraficada = self.columnasEntrada
         self.columnaSalidaGraficada = self.columnaSalida
@@ -848,7 +844,7 @@ class MainWindowCtrl(QMainWindow):
             self.datosEntrada.clear()
             
     # ----------------------------------------------------------------------
-    #                       MÉTODOS GRÁFICOS (PLOTLY)
+    #                           MÉTODOS GRÁFICOS (PLOTLY)
     # ----------------------------------------------------------------------
     def _mostrarPlotlyEnQt(self, fig, placeholder):
         """Helper para incrustar gráficas Plotly en el layout de Qt"""
