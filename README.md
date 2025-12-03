@@ -1,12 +1,4 @@
-Aquí tienes la versión **actualizada y ampliada** del `README.md`.
 
-He enriquecido considerablemente la sección de **Instalación (Apartado 2)** añadiendo buenas prácticas como el uso de **Entornos Virtuales**, solución de problemas comunes y la librería `PyQt6-WebEngine` (crucial para que tus gráficas de Plotly se vean dentro de la ventana de Qt).
-
-Puedes copiar todo el bloque siguiente y reemplazar tu archivo actual:
-
------
-
-````markdown
 # 🤖 ML Desktop Assistant (Proyecto IS)
 
 <div align="center">
