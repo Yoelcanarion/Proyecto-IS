@@ -1,5 +1,5 @@
 
-# 🤖 ML Desktop Assistant (Proyecto IS)
+Proyecto IS
 
 <div align="center">
 
@@ -16,23 +16,23 @@
 
 ---
 
-## 📄 Descripción
+##  Descripción
 **ML Desktop Assistant** es una herramienta diseñada para cerrar la brecha entre los datos crudos y las predicciones analíticas. Permite a los usuarios importar datasets, limpiar datos, entrenar modelos de regresión y clasificación, y visualizar resultados complejos a través de una interfaz gráfica intuitiva, eliminando la barrera de entrada de la programación.
 
 Esta documentación corresponde a la **Versión Final (Release)** y cubre desde la instalación hasta detalles arquitectónicos para desarrolladores.
 
 ---
 
-## ✨ Características Principales
+##  Características Principales
 
-### 🔄 1. Gestión de Datos (ETL)
+###  1. Gestión de Datos (ETL)
 * **Importación Multi-formato:** Carga nativa de archivos `.csv`, `.xlsx`, `.xls` y bases de datos `.sqlite` / `.db`.
 * **Preprocesamiento Visual:**
     * Detección y eliminación de filas con valores nulos (NaN).
     * Imputación automática mediante **Media**, **Mediana** o valores **Constantes**.
 * **Selección de Features:** Interfaz para definir múltiples columnas de entrada y la variable objetivo.
 
-### 🧠 2. Motor de Machine Learning
+###  2. Motor de Machine Learning
 El sistema adapta automáticamente los algoritmos disponibles según el tipo de dato de salida:
 
 | Tipo de Problema | Algoritmos Disponibles |
@@ -42,20 +42,20 @@ El sistema adapta automáticamente los algoritmos disponibles según el tipo de 
 
 > **Nota:** El sistema incluye detección automática de variables binarias (ej: "Sí/No") para permitir su uso en modelos numéricos.
 
-### 📊 3. Visualización y Métricas
+###  3. Visualización y Métricas
 * **Gráficos Interactivos:** Renderizado de gráficos de dispersión 2D y superficies 3D con **Plotly**.
 * **Evaluación de Modelos:** Cálculo automático de métricas clave:
     * $R^2$ y ECM (Error Cuadrático Medio) para regresión.
     * Accuracy y Matrices de Confusión para clasificación.
 * **Fórmulas Matemáticas:** Generación de la ecuación textual del modelo resultante.
 
-### 💾 4. Persistencia
+###  4. Persistencia
 * **Guardar/Cargar:** Exportación de modelos a archivos `.pkl` incluyendo metadatos y descripciones personalizadas.
 * **Predicción Manual:** Interfaz dedicada para ingresar nuevos datos y obtener predicciones en tiempo real sobre modelos cargados.
 
 ---
 
-## ⚙️ Instalación y Puesta en Marcha
+##  Instalación y Puesta en Marcha
 
 Para asegurar un funcionamiento correcto y evitar conflictos con otras librerías de tu sistema, recomendamos seguir estos pasos detallados.
 
@@ -134,7 +134,7 @@ python src/main.py
 
 -----
 
-## ❓ Solución de Problemas (Troubleshooting)
+##  Solución de Problemas (Troubleshooting)
 
 | Error Común | Causa Probable | Solución |
 | :--- | :--- | :--- |
@@ -144,7 +144,7 @@ python src/main.py
 
 -----
 
-## 🏗️ Notas Técnicas (Arquitectura)
+##  Notas Técnicas (Arquitectura)
 
 Esta sección está destinada a futuros desarrolladores que deseen mantener o extender el proyecto.
 
@@ -168,7 +168,7 @@ Para garantizar el rendimiento con datasets grandes, se han implementado técnic
 
 -----
 
-## 🧪 Testing
+##  Testing
 
 El proyecto incluye una suite de pruebas automatizadas con **Pytest** para validar la integridad de la release.
 
@@ -186,7 +186,7 @@ pytest src/test/Tests_test.py
 
 -----
 
-## 📝 Licencia
+##  Licencia
 
 Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](https://www.google.com/search?q=LICENSE) para más detalles.
 
