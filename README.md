@@ -3,10 +3,10 @@ Proyecto IS
 
 <div align="center">
 
-![Python Version](https://img.shields.io/badge/python-3.9%2B-blue?style=for-the-badge&logo=python)
-![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green?style=for-the-badge&logo=qt)
-![Scikit-Learn](https://img.shields.io/badge/ML-Scikit--Learn-orange?style=for-the-badge&logo=scikit-learn)
-![Status](https://img.shields.io/badge/Status-Release%20Candidate-success?style=for-the-badge)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/downloads/)
+[![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green?style=for-the-badge&logo=qt)](https://pypi.org/project/PyQt6/)
+[![Scikit-Learn](https://img.shields.io/badge/ML-Scikit--Learn-orange?style=for-the-badge&logo=scikit-learn)](https://scikit-learn.org/stable/)
+[![Status](https://img.shields.io/badge/Status-Release%20Candidate-success?style=for-the-badge)](https://github.com/tu-usuario/proyecto-is/releases)
 
 **Una suite de escritorio completa para análisis de datos, preprocesamiento y Machine Learning sin código.**
 
@@ -17,7 +17,7 @@ Proyecto IS
 ---
 
 ##  Descripción
-**ML Desktop Assistant** es una herramienta diseñada para cerrar la brecha entre los datos crudos y las predicciones analíticas. Permite a los usuarios importar datasets, limpiar datos, entrenar modelos de regresión y clasificación, y visualizar resultados complejos a través de una interfaz gráfica intuitiva, eliminando la barrera de entrada de la programación.
+**THE PIPELINE** es una herramienta diseñada para cerrar la brecha entre los datos crudos y las predicciones analíticas. Permite a los usuarios importar datasets, limpiar datos, entrenar modelos de regresión y clasificación, y visualizar resultados complejos a través de una interfaz gráfica intuitiva, eliminando la barrera de entrada de la programación.
 
 Esta documentación corresponde a la **Versión Final (Release)** y cubre desde la instalación hasta detalles arquitectónicos para desarrolladores.
 
