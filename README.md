@@ -110,7 +110,7 @@ python src/main.py
 
 -----
 
-## 📖 Guía de Uso Rápida
+##  Guía de Uso Rápida
 
 ### Paso 1: Preprocesamiento
 
