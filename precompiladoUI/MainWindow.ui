@@ -283,6 +283,13 @@
             </spacer>
            </item>
            <item>
+            <widget class="QLabel" name="lblTipoModelo">
+             <property name="text">
+              <string>Tipo:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <layout class="QHBoxLayout" name="conjuntoDatosGrafica">
              <item>
               <widget class="QLabel" name="lblDivision">
@@ -318,7 +325,20 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="cmbModelos"/>
+              <widget class="QComboBox" name="cmbModelos">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>200</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </widget>
              </item>
              <item>
               <widget class="QPushButton" name="botonDividirTest">

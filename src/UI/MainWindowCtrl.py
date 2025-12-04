@@ -131,6 +131,8 @@ class MainWindowCtrl(QMainWindow):
         Lógica simplificada mediante composición de listas.
         """
         self.ui.cmbModelos.clear()
+        self.ui.lblTipoModelo.show()
+        self.ui.lblTipoModelo.setText("")
         self.dicColumnaSalida= None
         self.ui.cmbModelos.addItem("---Seleccione un Entrenamiento---")
 
@@ -151,9 +153,11 @@ class MainWindowCtrl(QMainWindow):
 
         # 3. Lógica de Decisión
         if esCategorico:
+            self.ui.lblTipoModelo.setText("Tipo de Modelo: Clasificacion")
             listaModelos = MODELOS_CLASIFICACION
             
             if esBinario:
+                self.ui.lblTipoModelo.setText("Tipo de Modelo: Clasificacion")
                 listaModelos += MODELOS_BINARIOS
                 aceptarTransformacion = self.msj.crearEncuestaSimple(
                     self,
@@ -163,14 +167,17 @@ class MainWindowCtrl(QMainWindow):
                 )
                 
                 if aceptarTransformacion:
+                    self.ui.lblTipoModelo.setText("Tipo de Modelo: Regresion y Clasificacion")
                     self.dicColumnaSalida = gd.transformarColumnaBinariaAuto(self.dfProcesado,self.columnaSalida) 
                     listaModelos += MODELOS_REGRESION
 
         else:
             # Caso Numérico
             if esBinario:
+                self.ui.lblTipoModelo.setText("Tipo de Modelo: Regresion y Clasificacion")
                 listaModelos = MODELOS_CLASIFICACION + MODELOS_BINARIOS + MODELOS_REGRESION
             else:
+                self.ui.lblTipoModelo.setText("Tipo de Modelo: Regresion")
                 listaModelos = MODELOS_REGRESION
 
         # 4. Carga final
@@ -190,6 +197,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.lblDivision.hide()
         self.ui.numeroSliderTest.hide()
         self.ui.cmbModelos.hide()
+        self.ui.lblTipoModelo.hide()
     
 
     def configurarInterfaz(self):
@@ -242,6 +250,7 @@ class MainWindowCtrl(QMainWindow):
         self.ui.labelPrediccion.hide()
         self.ui.spinBoxEntrada.hide()
         self.ui.cmbModelos.hide()
+        self.ui.lblTipoModelo.hide()
 
 
     def conectarSenalesPreproceso(self):
@@ -366,6 +375,7 @@ class MainWindowCtrl(QMainWindow):
             self.columnasEntrada =  entrada
             self.columnaSalida = salida
             self.marcarColumnasSeleccionadas(self.df)
+            self.ui.lblTipoModelo.hide()
             #Comprueba si existe algun nulo entre las columnas seleccionadas
             if((lambda df, conjuntoAnalisis: any(df[c].isna().any() for c in conjuntoAnalisis))(self.df, conjuntoAnalisis)):
                 #Ponemos que se vean despues de seleccionar
