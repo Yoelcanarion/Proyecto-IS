@@ -6,11 +6,11 @@ Proyecto IS
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green?style=for-the-badge&logo=qt)](https://pypi.org/project/PyQt6/)
 [![Scikit-Learn](https://img.shields.io/badge/ML-Scikit--Learn-orange?style=for-the-badge&logo=scikit-learn)](https://scikit-learn.org/stable/)
-[![Status](https://img.shields.io/badge/Status-Release%20Candidate-success?style=for-the-badge)](https://github.com/tu-usuario/proyecto-is/releases)
+
 
 **Una suite de escritorio completa para análisis de datos, preprocesamiento y Machine Learning sin código.**
 
-[Reportar Bug](https://github.com/tu-usuario/proyecto-is/issues) · [Solicitar Feature](https://github.com/tu-usuario/proyecto-is/issues)
+
 
 </div>
 
