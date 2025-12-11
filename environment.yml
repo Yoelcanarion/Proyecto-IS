@@ -1,0 +1,43 @@
+name: IS
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas=2.3.3
+  - numpy=2.3.1
+  # ELIMINAMOS LAS VERSIONES FIJAS DE ESTOS DOS PARA QUE CONDA ELIJA LAS QUE EXISTEN
+  - scipy 
+  - scikit-learn
+  # El resto sigue igual
+  - seaborn=0.13.2
+  - pyqt=5.15.11
+  - matplotlib
+  - tk=8.6.15
+  - tornado=6.5.1
+  - pillow=10.4.0
+  - openjpeg=2.5.2
+  - joblib=1.5.2
+  - contourpy=1.3.1
+  - bottleneck=1.4.2
+  - kiwisolver=1.4.8
+  - fonttools=4.60.1
+  - threadpoolctl=3.6.0
+  - six=1.17.0
+  - setuptools=72.1.0
+  - python-dateutil=2.9.0post0
+  - packaging=25.0
+  - numexpr=2.11.0
+  - freetype=2.13.3
+  - zstd=1.5.7
+  - lcms2=2.17
+  - libtiff=4.7.0
+  - icu=75.1
+  - libxml2=2.13.8
+  - sip=6.10.0
+  - tomli=2.3.0
+  - pip=25.2
+  - pip:
+    - pytest
+    - pytest-qt
+    - pytest-mock

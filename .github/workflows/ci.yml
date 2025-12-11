@@ -1,0 +1,41 @@
+name: Ejecucion Automatica de Tests (Conda)
+
+on:
+  push:
+    branches: [ "main",  "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+jobs:
+  test-runner:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Descargar código
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    # 2. Instalar dependencias de sistema para interfaz gráfica (QT)
+    # Esto evita el error "Could not load the Qt platform plugin 'xcb'"
+    # 2. Instalar librerías gráficas de Linux
+    - name: Instalar dependencias del sistema para QT
+      run: |
+        sudo apt-get update
+        # CORREGIDO: libegl1-mesa ahora es libegl1
+        sudo apt-get install -y libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libegl1 xvfb
+    # 3. Configurar Conda
+    - name: Configurar Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        activate-environment: IS
+        environment-file: environment.yml
+        # HE BORRADO LA LÍNEA 'python-version' QUE CAUSABA EL ERROR 3.1
+        auto-activate-base: false
+
+    # 4. Ejecutar los tests con Pantalla Virtual
+    # Usamos 'xvfb-run' para simular un monitor
+    - name: Correr Pruebas con Pytest
+      shell: bash -l {0}
+      run: |
+        xvfb-run pytest -v

@@ -1,3 +1,7 @@
+# Proyecto-IS
+Proyecto de Ingeniería del Software 2ºCurso.
+librerias a instalar: pandas, numpy, pyqt(v6, conda install -c conda-forge pyqt)
+Este proyecto sirve para...
 
 Proyecto IS
 
@@ -57,58 +61,17 @@ El sistema adapta automáticamente los algoritmos disponibles según el tipo de 
 
 ##  Instalación y Puesta en Marcha
 
-Para asegurar un funcionamiento correcto y evitar conflictos con otras librerías de tu sistema, recomendamos seguir estos pasos detallados.
+Para asegurar un funcionamiento correcto y evitar conflictos con otras librerías de tu sistema hemos decidido compilar
+la aplicacion para la facilidad de uso, de momento solo se encuentra disponible para windows en 2 versiones main y legacy.
 
-### Prerrequisitos
-* **Python 3.9** o superior instalado.
-* Git instalado para clonar el repositorio.
+La version main es la recomendada ya que es la mas rapida, todas las librerias necesarias se instalaron con pip y cuenta con una
+interfaz mas moderna.
 
-### 1. Clonar el repositorio
-Descarga el código fuente a tu máquina local:
+La version legacy es la mas robusta y tolerante a fallos, sin embargo el tiempo de carga es mucho mas lento y la interfaz es mas
+clasica.
 
-```bash
-git clone [https://github.com/tu-usuario/proyecto-is.git](https://github.com/tu-usuario/proyecto-is.git)
-cd Proyecto-IS
-````
+En caso de problemas con la version main se recomienda utilizar la legacy
 
-### 2\. Crear un Entorno Virtual (Recomendado)
-
-Es una buena práctica aislar las dependencias del proyecto.
-
-  * **En Windows:**
-
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
-
-  * **En macOS/Linux:**
-
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-### 3\. Instalar dependencias
-
-Instala las librerías necesarias. Hemos incluido `PyQt6-WebEngine` necesaria para la visualización de gráficos avanzados y `openpyxl` para leer archivos Excel.
-
-```bash
-pip install --upgrade pip
-pip install pandas numpy scikit-learn PyQt6 PyQt6-WebEngine plotly matplotlib scipy pytest openpyxl
-```
-
-> **Nota para usuarios de Linux:** Si encuentras errores al instalar PyQt6, asegúrate de tener instaladas las librerías base de Qt en tu sistema (ej: `libxcb-cursor0` en Ubuntu).
-
-### 4\. Ejecutar la aplicación
-
-Una vez instaladas las dependencias, lanza la interfaz gráfica desde el directorio raíz del proyecto:
-
-```bash
-python src/main.py
-```
-
------
 
 ##  Guía de Uso Rápida
 
