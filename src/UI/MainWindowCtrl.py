@@ -612,7 +612,7 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
     def pipelineModelo(self):
-        if(self.ui.cmbModelos.currentText() == "--- Seleccione un Entrenamiento---"): return
+        if(self.ui.cmbModelos.currentText() == "---Seleccione un Entrenamiento---"): return
         
         self.procesoDataSplit()
         # CAMBIO REALIZADO AQUÍ: Se eliminó la transición y se usa setCurrentIndex
@@ -639,7 +639,7 @@ class MainWindowCtrl(QMainWindow):
             
             if esGraficable:
                 plotGrafica(self.xTrain, self.yTrain, self.xTest, self.yTest, self.columnasEntradaGraficada, self.columnaSalidaGraficada, self.dicColumnaSalida, self.modelo, self.ui.placeholderGrafica)
-                plotCorrelacion(self, self.modelo, self.xTest, self.yTest, self.columnaSalidaGraficada, self.ui.placeholderCorrelacion)
+                plotCorrelacion(self, self.modelo, self.xTest, self.yTest, self.columnaSalidaGraficada, self.dicColumnaSalida, self.ui.placeholderCorrelacion)
 
             self.ui.placeholderCorrelacion.show()
 

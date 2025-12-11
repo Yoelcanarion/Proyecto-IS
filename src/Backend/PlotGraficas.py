@@ -245,7 +245,7 @@ def _dibujarPuntoDestacado3D(fig, x, y, z, nombre):
 
 
 
-def plotCorrelacion(parent, modelo, xTest, yTest, columnaSalidaGraficada,placeholderCorrelacion):
+def plotCorrelacion(parent, modelo, xTest, yTest, columnaSalidaGraficada, dicColumnaSalida, placeholderCorrelacion):
     """
     Decide qué gráfica mostrar según el tipo de datos:
     - Datos Numéricos -> Gráfica de Correlación (Real vs Predicho).
@@ -265,7 +265,7 @@ def plotCorrelacion(parent, modelo, xTest, yTest, columnaSalidaGraficada,placeho
         if not esClasificador:
             _configurarGraficaCorrelacion(modelo, xTest, yTest, columnaSalidaGraficada, fig)
         else:
-            _configurarMatrizConfusion(modelo, xTest, yTest, columnaSalidaGraficada,fig)
+            _configurarMatrizConfusion(modelo, dicColumnaSalida, xTest, yTest, fig)
 
         _mostrarPlotlyEnQt(fig, placeholderCorrelacion)
         
