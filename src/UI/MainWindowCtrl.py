@@ -631,7 +631,7 @@ class MainWindowCtrl(QMainWindow):
             msj.crearAdvertencia(self, "Error", "No se seleccionó ninguna ruta para guardar el modelo.")
 
     def pipelineModelo(self):
-        if(self.ui.cmbModelos.currentText() == "--- Seleccione un Entrenamiento---"): return
+        if(self.ui.cmbModelos.currentText() == "---Seleccione un Entrenamiento---"): return
         
         self.procesoDataSplit()
         # CAMBIO REALIZADO AQUÍ: Se eliminó la transición y se usa setCurrentIndex
